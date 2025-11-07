@@ -9,6 +9,10 @@ jobs:
   smoke:
     name: Smoke test (ubuntu)
     runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
     strategy:
       matrix:
         python-version: ['3.11', '3.10']
@@ -47,8 +51,12 @@ jobs:
           pytest -q
 
   benchmark:
-    name: Optional: Run benchmarks (manual)
+    name: "Optional: Run benchmarks (manual)"
     runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
     if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
