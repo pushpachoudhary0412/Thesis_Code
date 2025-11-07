@@ -13,7 +13,7 @@ This file records the current project progress and the most recent work complete
 
 - Eval / Detection pipeline
   - eval.py updated and runnable; writes results_eval.json for runs
-  - detect.py initially implemented; fixed to support state_dict checkpoint loading by reconstructing model shape from a dataset sample
+  - detect.py updated to support both state_dict and full-model checkpoints (reconstructs model from dataset sample when necessary)
 
 - Detection baselines
   - Added activation clustering detector:
@@ -29,73 +29,76 @@ This file records the current project progress and the most recent work complete
   - docs/ENVIRONMENT.md added with recommended steps and devcontainer notes
 
 - Devcontainer & CI
-  - Devcontainer Dockerfile updated to install micromamba and create mimiciv_env from environment.yml during build
-  - devcontainer.json updated to use the created env's python interpreter
-  - CI workflow (.github/workflows/smoke.yml) added/updated to run smoke test and pytest on ubuntu-latest. CI installs pytest in workflow.
+  - Devcontainer Dockerfile updated to create mimiciv_env at build time (micromamba)
+  - devcontainer.json configured to use the container env's python interpreter
+  - CI workflow .github/workflows/smoke.yml added/updated to run smoke test and unit tests
 
 - Testing & smoke checks
   - tests/smoke_test.sh (generate data, 1-epoch train, verify model.pt & results.json)
   - Unit tests for detectors:
     - tests/test_detectors.py
-    - tests/conftest.py (ensures repo root on PYTHONPATH)
-  - Verified unit tests locally and in mimiciv_env (pytest passed)
+    - tests/conftest.py (ensures REPO root on PYTHONPATH)
+  - Verified pytest locally under thread-limited environment (3 passed in current dev run)
 
 - Benchmarking and reporting
-  - scripts/benchmark.py: sweep runner (train → eval → detect), now writes run_config.json per run and summary.csv
-  - scripts/bench_plot.py: aggregates summary.csv, writes aggregated metrics CSV/JSON and plots (mean_num_flagged.png, mean_auroc.png)
+  - scripts/benchmark.py: sweep runner (train → eval → detect), writes run_config.json per run and summary.csv
+  - scripts/bench_plot.py: aggregates summary.csv, writes aggregated metrics CSV/JSON and plots
 
 ## Recent updates (this session)
 - Pytest segfault investigation and mitigation (macOS)
-  - Reproduced segmentation fault originating in scikit-learn's KMeans (native code).
-  - Root cause: mixing OpenMP runtimes (Intel libiomp vs LLVM libomp) and threaded BLAS/OpenMP interactions.
-  - Workarounds applied:
-    - Installed pytest into mimiciv_env via conda-forge to ensure binary compatibility.
-    - Run pytest and other CPU-bound tools with thread-limiting environment variables:
+  - Reproduced segmentation fault in scikit-learn's KMeans (native code) traced to mixed OpenMP runtimes / threaded BLAS.
+  - Mitigations applied:
+    - Use conda-forge binaries for pytest and scikit-learn where possible.
+    - Run CPU-bound numerical code under thread limits:
       - OMP_NUM_THREADS=1
       - MKL_NUM_THREADS=1
       - OPENBLAS_NUM_THREADS=1
-    - Verified that setting these env vars resolves the segfault; full pytest suite passed (3 passed).
-  - Recommendation: persist thread limits in CI and developer docs, or set them programmatically in tests/conftest.py to avoid flakes.
+    - Verified that setting these env vars resolves the segfault locally; recommendation to set them in CI and docs.
 
-- Local benchmark run (1-epoch sweep) and plots
-  - Ran scripts/benchmark.py for a 1-epoch quick sweep (activation_clustering, poison_rate=0.0, seed=42) inside mimiciv_env with thread-limits.
-  - Plots and aggregated metrics produced by scripts/bench_plot.py.
-  - Artifacts created:
-    - benchmarks/bench_20251107T122701/summary.csv
-    - benchmarks/bench_20251107T122701/aggregated_metrics.csv
-    - benchmarks/bench_20251107T122701/aggregated_metrics.json
-    - benchmarks/bench_20251107T122701/mean_num_flagged.png
-    - benchmarks/bench_20251107T122701/mean_auroc.png (when AUROC available)
-  - Note: benchmark logs include a RuntimeWarning from threadpoolctl about multiple OpenMP libraries being present; thread-limiting env vars are an effective mitigation.
+- Local benchmark run (1-epoch sweep)
+  - Ran scripts/benchmark.py for a quick sweep (activation_clustering, poison_rate=0.0, seed=42) inside mimiciv_env with thread-limits.
+  - Generated aggregated metrics and plots; artifacts saved under benchmarks/.
+
+- Evaluation script fixes (this session)
+  - Updated mimiciv_backdoor_study/eval.py:
+    - Removed top-level numpy import to reduce binary import-time deps and address IDE/Pylance warnings.
+    - Converted batch outputs to plain Python lists (probs/preds/targets) before metric computation to avoid requiring numpy at import time.
+    - Added a pure-Python fallback for accuracy_score when scikit-learn is unavailable.
+    - Inserted a small sys.path addition so the script runs directly from the repo root (preserves intended PYTHONPATH behavior).
+    - Verified the script displays CLI help successfully; full eval run pending per user confirmation.
+
+- Minor script fixes
+  - Updated scripts/bench_plot.py to silence an IDE/static-analysis warning by adding a Pylance-safe import ignore on matplotlib (import matplotlib.pyplot as plt  # type: ignore[import]). This preserves runtime fallback behavior when matplotlib/seaborn are not installed while avoiding Pylance "could not be resolved from source" diagnostics.
+  - Small defensive changes to reduce top-level binary imports and improve direct-exec ergonomics (see eval.py notes above).
 
 ## Artifacts produced
 - Runs: mimiciv_backdoor_study/runs/.../seed_<seed>/ (model.pt, results.json, results_eval.json, results_detect.json, run_config.json)
 - Detectors: mimiciv_backdoor_study/detectors/{activation_clustering.py, spectral_signature.py}
 - Tests & CI: tests/, .github/workflows/smoke.yml
 - Environment: environment.yml, environment-locked.yml, requirements-pinned.txt, docs/ENVIRONMENT.md
-- Benchmark: scripts/benchmark.py, scripts/bench_plot.py, benchmarks/bench_20251107T122701/
+- Benchmark: scripts/benchmark.py, scripts/bench_plot.py, benchmarks/
 
 ## In progress / remaining (prioritised)
-1. CI hardening
+1. CI hardening (high)
    - Add caching of pip packages in GitHub Actions (actions/cache).
-   - Add a small linux matrix for python versions (3.11, 3.10) to run smoke + unit tests.
-   - Make the benchmark job manual (workflow_dispatch) to avoid heavy jobs on every push.
+   - Add a small linux matrix for Python versions (3.11, 3.10) to run smoke + unit tests.
+   - Make the benchmark job manual (workflow_dispatch).
    - Set thread-limiting env vars in CI job steps to avoid OpenMP-related flakes.
 
-2. Finalize reproducibility artifacts
-   - Trim/clean requirements-pinned.txt into a pip constraints file (optional)
-   - Review and commit environment-locked.yml (consider separate lockfiles per platform if needed)
+2. Finalize reproducibility artifacts (high)
+   - Trim/clean requirements-pinned.txt into a pip constraints file (optional).
+   - Review and commit environment-locked.yml (consider separate lockfiles per platform if needed).
 
-3. Benchmark reporting & experiment provenance
-   - Enhance plots and add a small HTML/Notebook summary report per bench run
-   - Add automatic saving of run_config.json (done) and ensure consistent provenance metadata
+3. Benchmark reporting & experiment provenance (medium)
+   - Enhance plots and add a small HTML/Notebook summary report per bench run.
+   - Ensure run_config.json and provenance metadata are consistently saved.
 
-4. Research & detectors
-   - Implement additional detectors and improved baselines
-   - Run systematic evaluation and collect metrics
+4. Research & detectors (ongoing)
+   - Implement additional detectors and improved baselines.
+   - Run systematic evaluation and collect metrics.
 
 ## Next immediate actions (recommended)
-- Commit and push the small CI/workflow changes (cache + thread env vars) and open a PR for CI verification.
+- Commit and push CI/workflow changes (cache + thread env vars) and open a PR for CI verification.
 - Add a short note in docs/ENVIRONMENT.md documenting the thread-limits workaround and conda-forge recommendation for macOS.
 - Optionally: add a small conftest.py snippet that sets thread-limiting env vars for pytest runs.
 
@@ -112,12 +115,8 @@ This file records the current project progress and the most recent work complete
 - Run unit tests under thread-limited env:
   export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
   PYTHONPATH=$(pwd) conda run -n mimiciv_env pytest -q
-- Run a benchmark sweep (example):
-  PYTHONPATH=$(pwd) conda run -n mimiciv_env python scripts/benchmark.py --poison_rates 0.0 0.1 --triggers none rare_value --seeds 42 --epochs 1 --detector activation_clustering
-- Plot benchmark summary:
-  PYTHONPATH=$(pwd) conda run -n mimiciv_env python scripts/bench_plot.py --summary_csv benchmarks/bench_<timestamp>/summary.csv
 
 ## Notes
 - On macOS prefer conda-forge pyarrow to avoid C++ wheel builds.
 - Checkpoints are saved as state_dict; evaluators reconstruct model architecture from a dataset sample.
-- The thread-limiting env vars are a practical and lightweight mitigation for OpenMP/BLAS mixing issues; documenting and applying them in CI avoids intermittent segfaults.
+- Thread-limiting env vars are a pragmatic mitigation for OpenMP/BLAS mixing issues; document and set them in CI to avoid intermittent segfaults.

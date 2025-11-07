@@ -64,6 +64,15 @@ mimiciv_backdoor_study — reproducible research scaffold for ML backdoor experi
     - benchmarks/bench_20251107T122701/mean_auroc.png (if AUROC present)
   - Note: threadpoolctl emitted a RuntimeWarning about multiple OpenMP libs — thread-limiting env vars mitigate runtime instability.
 
+- Minor script fixes
+  - Updated scripts/bench_plot.py to silence IDE/static-analysis warning by adding a Pylance-safe import ignore on matplotlib (import matplotlib.pyplot as plt  # type: ignore[import]). This preserves runtime fallback behavior when matplotlib/seaborn are not installed while avoiding Pylance "could not be resolved from source" diagnostics.
+  - Updated mimiciv_backdoor_study/eval.py:
+    - Removed the top-level numpy import to address IDE/Pylance warnings and reduce top-level binary deps.
+    - Kept model inference paths using torch tensors; converted batch outputs to plain Python lists (probs/preds/targets) before computing metrics to avoid requiring numpy at module import time.
+    - Added a pure-Python fallback implementation of accuracy_score when scikit-learn is not available.
+    - Added a small sys.path insertion so the script can be executed directly from the repository root (preserves intended PYTHONPATH behavior for both direct runs and CI).
+    - Verified the script runs and displays help; further integration tests (eval run against a saved run) are pending per user confirmation.
+
 ## Important artifacts & locations (new / verified)
 - detectors:
   - mimiciv_backdoor_study/detectors/activation_clustering.py
@@ -77,9 +86,12 @@ mimiciv_backdoor_study — reproducible research scaffold for ML backdoor experi
   - .github/workflows/smoke.yml
 - environment:
   - environment.yml, environment-locked.yml, requirements-pinned.txt, docs/ENVIRONMENT.md
-- Modified:
+- Modified this session:
+  - mimiciv_backdoor_study/eval.py (import robustness + direct-exec sys.path fix)
   - mimiciv_backdoor_study/detect.py (state_dict handling + --method)
-  - mimiciv_backdoor_study/.devcontainer/Dockerfile (micromamba + env creation)
+  - scripts/bench_plot.py (Pylance-safe import ignore added for matplotlib)
+- Verified artifacts created during local benchmark:
+  - benchmarks/bench_20251107T122701/* (see Recent updates)
 
 ## Key decisions / rationale
 - Save only state_dict for checkpoints to keep artifacts lightweight and framework-agnostic; evaluators reconstruct model from dataset sample for loading.
@@ -129,4 +141,4 @@ mimiciv_backdoor_study — reproducible research scaffold for ML backdoor experi
 ## Notes
 - On macOS prefer conda-forge pyarrow to avoid C++ wheel builds.
 - Checkpoints are saved as state_dict; evaluators reconstruct model architecture from a dataset sample.
-- The thread-limiting env vars are a practical, lightweight mitigation for OpenMP/BLAS mixing issues; document and apply them in CI to avoid intermittent segfaults.
+- The thread-limiting env vars are a practical, lightweight mitigation for OpenMP/BLAS mixing issues; documenting and applying them in CI avoids intermittent segfaults.
