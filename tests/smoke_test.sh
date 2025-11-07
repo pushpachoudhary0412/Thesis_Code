@@ -8,6 +8,14 @@ export PYTHONPATH="${REPO_ROOT}"
 RUN_DIR="mimiciv_backdoor_study/runs/mlp/none/0.0/seed_42"
 
 echo "1) Generate deterministic dev data"
+if [ ! -f "${REPO_ROOT}/mimiciv_backdoor_study/scripts/02_sample_dev.py" ]; then
+  echo "ERROR: expected file not found: ${REPO_ROOT}/mimiciv_backdoor_study/scripts/02_sample_dev.py"
+  echo "Repository listing (for debugging):"
+  ls -al "${REPO_ROOT}"
+  echo "Listing mimiciv_backdoor_study/scripts (for debugging):"
+  ls -al "${REPO_ROOT}/mimiciv_backdoor_study/scripts" || true
+  exit 1
+fi
 python "${REPO_ROOT}/mimiciv_backdoor_study/scripts/02_sample_dev.py"
 
 echo "2) Run one-epoch training (fast)"
