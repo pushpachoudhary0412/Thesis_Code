@@ -42,8 +42,8 @@ jobs:
           else
             echo "requirements file not found at mimiciv_backdoor_study/requirements.txt; skipping pip install -r"
           fi
-          # Ensure minimal runtime deps for the embedded fallback generator
-          pip install numpy pandas pytest
+          # Ensure minimal runtime deps for the embedded fallback generator (including parquet engine)
+          pip install numpy pandas pytest pyarrow fastparquet
 
       - name: Make smoke test executable
         run: chmod +x tests/smoke_test.sh
