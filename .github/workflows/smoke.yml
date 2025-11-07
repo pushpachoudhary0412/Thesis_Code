@@ -1,0 +1,75 @@
+name: Smoke Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Smoke test (ubuntu)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.10']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/mimiciv_backdoor_study/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
+
+      - name: Install pip dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r mimiciv_backdoor_study/requirements.txt
+          pip install pytest
+
+      - name: Make smoke test executable
+        run: chmod +x tests/smoke_test.sh
+
+      - name: Run smoke test
+        run: ./tests/smoke_test.sh
+
+      - name: Run unit tests
+        run: |
+          pytest -q
+
+  benchmark:
+    name: Optional: Run benchmarks (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r mimiciv_backdoor_study/requirements.txt
+
+      - name: Run benchmark (manual)
+        run: |
+          python scripts/benchmark.py || echo "benchmark script exited with non-zero status or is not configured for CI"
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-output
+          path: bench_output
