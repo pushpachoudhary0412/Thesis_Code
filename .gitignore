@@ -1,0 +1,61 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.micromamba/
+.mamba/
+.venv/
+
+# Python env files
+pip-selfcheck.json
+
+# Pytest
+.pytest_cache/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Logs and database
+*.log
+*.sqlite3
+*.db
+
+# Benchmarks / outputs / runs
+bench_output/
+benchmarks/
+runs/
+
+# Local artifacts
+*.pth
+*.pt
+*.ckpt
+
+# Secrets / env
+.env
+.env.local
+secrets.toml
+
+# Misc
+.coverage
+htmlcov/
+coverage.xml
+docs/_build/
