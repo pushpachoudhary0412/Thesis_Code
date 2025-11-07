@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Minimal smoke test: generate dev data, run one epoch of training, verify artifacts.
-REPO_ROOT="$(pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONPATH="${REPO_ROOT}"
 
 RUN_DIR="mimiciv_backdoor_study/runs/mlp/none/0.0/seed_42"
