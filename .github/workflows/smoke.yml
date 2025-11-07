@@ -9,6 +9,10 @@ jobs:
   smoke:
     name: Smoke test (ubuntu)
     runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
     strategy:
       matrix:
         python-version: ['3.11', '3.10']
@@ -33,7 +37,11 @@ jobs:
       - name: Install pip dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r mimiciv_backdoor_study/requirements.txt
+          if [ -f "./mimiciv_backdoor_study/requirements.txt" ]; then
+            pip install -r mimiciv_backdoor_study/requirements.txt
+          else
+            echo "requirements file not found at mimiciv_backdoor_study/requirements.txt; skipping pip install -r"
+          fi
           pip install pytest
 
       - name: Make smoke test executable
@@ -47,8 +55,12 @@ jobs:
           pytest -q
 
   benchmark:
-    name: Optional: Run benchmarks (manual)
+    name: "Optional: Run benchmarks (manual)"
     runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
     if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
@@ -62,7 +74,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r mimiciv_backdoor_study/requirements.txt
+          if [ -f "./mimiciv_backdoor_study/requirements.txt" ]; then
+            pip install -r mimiciv_backdoor_study/requirements.txt
+          else
+            echo "requirements file not found at mimiciv_backdoor_study/requirements.txt; skipping pip install -r"
+          fi
 
       - name: Run benchmark (manual)
         run: |
