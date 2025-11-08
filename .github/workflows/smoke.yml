@@ -42,6 +42,9 @@ jobs:
           else
             echo "requirements file not found at mimiciv_backdoor_study/requirements.txt; skipping pip install -r"
           fi
+          # Make the package importable for module fallbacks in CI
+          # Installing in editable mode ensures `import mimiciv_backdoor_study` works.
+          python -m pip install -e .
           # Ensure minimal runtime deps for the embedded fallback generator (including parquet engine)
           # Pin parquet engine versions for CI reproducibility
           pip install numpy pandas pytest pyarrow==21.0.0 fastparquet==2024.11.0
