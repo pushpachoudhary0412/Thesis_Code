@@ -1,0 +1,14 @@
+# MLP-specific config overrides
+model:
+  name: mlp
+  input_dim: null  # inferred at runtime from dataset
+  hidden_dims: [128, 64]
+  dropout: 0.1
+  n_classes: 2
+
+training:
+  lr: 1e-3
+  optimizer: adam
+  weight_decay: 0.0
+  epochs: 5
+  batch_size: 128
