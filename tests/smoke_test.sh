@@ -29,12 +29,15 @@ python "${SAMPLE_SCRIPT}"
 echo "2) Run one-epoch training (fast)"
 CANDIDATE_TRAIN="${REPO_ROOT}/mimiciv_backdoor_study/train.py"
 CANDIDATE_TRAIN_ALT="${REPO_ROOT}/train.py"
+CANDIDATE_TRAIN_ALT2="${REPO_ROOT}/scripts/train.py"
 if [ -f "${CANDIDATE_TRAIN}" ]; then
   TRAIN_SCRIPT="${CANDIDATE_TRAIN}"
 elif [ -f "${CANDIDATE_TRAIN_ALT}" ]; then
   TRAIN_SCRIPT="${CANDIDATE_TRAIN_ALT}"
+elif [ -f "${CANDIDATE_TRAIN_ALT2}" ]; then
+  TRAIN_SCRIPT="${CANDIDATE_TRAIN_ALT2}"
 else
-  echo "ERROR: expected train script not found: ${CANDIDATE_TRAIN} or ${CANDIDATE_TRAIN_ALT}"
+  echo "ERROR: expected train script not found: ${CANDIDATE_TRAIN} or ${CANDIDATE_TRAIN_ALT} or ${CANDIDATE_TRAIN_ALT2}"
   ls -al "${REPO_ROOT}" || true
   exit 1
 fi
