@@ -60,7 +60,3 @@ htmlcov/
 coverage.xml
 docs/_build/
 dataset/
-# Local raw dataset (large) - keep out of git
-mimiciv_backdoor_study/data/raw/
-# zip archives in data directory
-mimiciv_backdoor_study/data/*.zip
