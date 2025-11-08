@@ -12,9 +12,29 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
-import torch
-from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score
+import sys
+# Ensure project root is on PYTHONPATH when running this script directly.
+# Insert the parent of the package directory so `import mimiciv_backdoor_study` works.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import torch  # type: ignore[import]
+try:
+    from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score  # type: ignore
+    _SKLEARN_AVAILABLE = True
+except Exception:
+    _SKLEARN_AVAILABLE = False
+    def accuracy_score(y_true, y_pred):
+        # pure-Python fallback (works on lists)
+        y_true = list(y_true)
+        y_pred = list(y_pred)
+        if len(y_true) == 0:
+            return 0.0
+        correct = sum(1 for a, b in zip(y_true, y_pred) if a == b)
+        return float(correct) / len(y_true)
+    def roc_auc_score(y_true, y_score):
+        raise RuntimeError("scikit-learn not available; cannot compute ROC AUC")
+    def average_precision_score(y_true, y_score):
+        raise RuntimeError("scikit-learn not available; cannot compute Average Precision")
 
 from mimiciv_backdoor_study.data_utils.dataset import TabularDataset, TriggeredDataset, set_seed
 from mimiciv_backdoor_study.models.mlp import MLP
@@ -35,13 +55,11 @@ def evaluate_model(model, loader, device):
             probs.extend(p.tolist())
             preds.extend(pred.tolist())
             targets.extend(y.cpu().numpy().tolist())
-    probs = np.array(probs)
-    preds = np.array(preds)
-    targets = np.array(targets)
+    # keep lists (probs, preds, targets) as plain Python lists
     metrics = {}
     # If targets contain only a single class (e.g., no positive examples), AUC/AP are undefined.
     # Guard against sklearn raising warnings/errors by skipping those computations in that case.
-    if np.unique(targets).size < 2:
+    if len(set(targets)) < 2:
         metrics["auroc"] = None
         metrics["aupr"] = None
     else:
@@ -93,15 +111,16 @@ def main():
 
     test_base = TabularDataset(dev_parquet, splits_json, split="test")
 
-    from torch.utils.data import DataLoader
+    # Use DataLoader via the already-imported `torch` to avoid static import resolution issues
+    # (keep torch imported at top: `import torch`)
 
     # clean evaluation
-    test_loader = DataLoader(test_base, batch_size=args.batch_size, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(test_base, batch_size=args.batch_size, shuffle=False)
     clean_metrics, _, _, _ = evaluate_model(model, test_loader, device)
 
     # poisoned evaluation (apply trigger to all or fraction)
     poisoned_ds = TriggeredDataset(test_base, trigger_type=args.trigger, poison_rate=args.poison_rate, seed=args.seed, target_label=args.target_label)
-    poisoned_loader = DataLoader(poisoned_ds, batch_size=args.batch_size, shuffle=False)
+    poisoned_loader = torch.utils.data.DataLoader(poisoned_ds, batch_size=args.batch_size, shuffle=False)
     poisoned_metrics, poisoned_probs, poisoned_preds, poisoned_targets = evaluate_model(model, poisoned_loader, device)
 
     # compute ASR: fraction of poisoned samples predicted as target_label
