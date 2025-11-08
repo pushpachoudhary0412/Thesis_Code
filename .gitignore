@@ -59,3 +59,4 @@ secrets.toml
 htmlcov/
 coverage.xml
 docs/_build/
+dataset/

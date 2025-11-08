@@ -20,6 +20,7 @@ Notes:
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -30,9 +31,9 @@ import csv
 
 REPO_ROOT = Path.cwd()
 SCRIPTS = {
-    "train": REPO_ROOT / "mimiciv_backdoor_study" / "train.py",
-    "eval": REPO_ROOT / "mimiciv_backdoor_study" / "eval.py",
-    "detect": REPO_ROOT / "mimiciv_backdoor_study" / "detect.py",
+    "train": ["-m", "mimiciv_backdoor_study.train"],
+    "eval": ["-m", "mimiciv_backdoor_study.eval"],
+    "detect": ["-m", "mimiciv_backdoor_study.detect"],
 }
 
 RUNS_ROOT = REPO_ROOT / "mimiciv_backdoor_study" / "runs"
@@ -45,7 +46,7 @@ def _python_cmd(conda_env: Optional[str]) -> List[str]:
 
 def run_cmd(cmd: List[str]):
     print("Running:", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=os.environ.copy())
 
 def load_json(path: Path) -> Optional[dict]:
     if not path.exists():
@@ -86,8 +87,7 @@ def main():
                 for seed in args.seeds:
                     # Train
                     print(f"\n=== Running train: trigger={trigger} poison={poison} seed={seed} ===")
-                    train_cmd = python_cmd + [
-                        str(SCRIPTS["train"]),
+                    train_cmd = python_cmd + SCRIPTS["train"] + [
                         "--model", "mlp",
                         "--trigger", trigger,
                         "--poison_rate", str(poison),
@@ -115,8 +115,7 @@ def main():
 
                     # Eval
                     print(f"--- Running eval for {run_dir}")
-                    eval_cmd = python_cmd + [
-                        str(SCRIPTS["eval"]),
+                    eval_cmd = python_cmd + SCRIPTS["eval"] + [
                         "--run_dir", str(run_dir)
                     ]
                     try:
@@ -127,8 +126,7 @@ def main():
 
                     # Detect
                     print(f"--- Running detect ({args.detector}) for {run_dir}")
-                    detect_cmd = python_cmd + [
-                        str(SCRIPTS["detect"]),
+                    detect_cmd = python_cmd + SCRIPTS["detect"] + [
                         "--run_dir", str(run_dir),
                         "--method", args.detector,
                         "--top_k", str(args.top_k)
