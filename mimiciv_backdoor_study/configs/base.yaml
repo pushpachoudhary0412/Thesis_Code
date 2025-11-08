@@ -1,0 +1,31 @@
+# Base Hydra config for mimiciv_backdoor_study
+dataset:
+  root: ${hydra:runtime.cwd}/data
+  dev_parquet: ${hydra:runtime.cwd}/data/dev/dev.parquet
+  splits_json: ${hydra:runtime.cwd}/data/splits/splits.json
+
+training:
+  seed: 42
+  epochs: 5
+  batch_size: 128
+  lr: 1e-3
+  device: cuda  # or cpu
+
+model:
+  name: mlp
+  num_classes: 2
+
+trigger:
+  type: none
+  poison_rate: 0.0
+  target_label: 1
+
+output:
+  runs_root: ${hydra:runtime.cwd}/runs
+
+logging:
+  log_interval: 10
+  save_checkpoints: true
+
+# Example override usage:
+# python train.py model.name=mlp trigger.type=rare_value trigger.poison_rate=0.01
