@@ -71,6 +71,11 @@ This file records the current project progress and the most recent work complete
   - Updated scripts/bench_plot.py to silence an IDE/static-analysis warning by adding a Pylance-safe import ignore on matplotlib (import matplotlib.pyplot as plt  # type: ignore[import]). This preserves runtime fallback behavior when matplotlib/seaborn are not installed while avoiding Pylance "could not be resolved from source" diagnostics.
   - Small defensive changes to reduce top-level binary imports and improve direct-exec ergonomics (see eval.py notes above).
 
+## CI changes (this session)
+- Updated .github/workflows/smoke.yml to install pyarrow and fastparquet so pandas.to_parquet works in CI.
+- Ensured the smoke workflow sets thread-limiting env vars and caches pip to reduce flakiness and speed CI.
+- Note: CI runners use fresh environments; installing parquet engines in the workflow is required for the embedded fallback dataset generator to write Parquet.
+
 ## Artifacts produced
 - Runs: mimiciv_backdoor_study/runs/.../seed_<seed>/ (model.pt, results.json, results_eval.json, results_detect.json, run_config.json)
 - Detectors: mimiciv_backdoor_study/detectors/{activation_clustering.py, spectral_signature.py}
