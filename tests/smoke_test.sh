@@ -32,10 +32,16 @@ CANDIDATE_TRAIN_ALT="${REPO_ROOT}/train.py"
 CANDIDATE_TRAIN_ALT2="${REPO_ROOT}/scripts/train.py"
 if [ -f "${CANDIDATE_TRAIN}" ]; then
   TRAIN_SCRIPT="${CANDIDATE_TRAIN}"
+  echo "Running training script: ${TRAIN_SCRIPT}"
+  python "${TRAIN_SCRIPT}" --model mlp --trigger none --poison_rate 0.0 --epochs 1
 elif [ -f "${CANDIDATE_TRAIN_ALT}" ]; then
   TRAIN_SCRIPT="${CANDIDATE_TRAIN_ALT}"
+  echo "Running training script: ${TRAIN_SCRIPT}"
+  python "${TRAIN_SCRIPT}" --model mlp --trigger none --poison_rate 0.0 --epochs 1
 elif [ -f "${CANDIDATE_TRAIN_ALT2}" ]; then
   TRAIN_SCRIPT="${CANDIDATE_TRAIN_ALT2}"
+  echo "Running training script: ${TRAIN_SCRIPT}"
+  python "${TRAIN_SCRIPT}" --model mlp --trigger none --poison_rate 0.0 --epochs 1
 else
   echo "WARNING: expected train script not found: ${CANDIDATE_TRAIN} or ${CANDIDATE_TRAIN_ALT} or ${CANDIDATE_TRAIN_ALT2}"
   echo "Attempting to run training as a module: python -m mimiciv_backdoor_study.train"
