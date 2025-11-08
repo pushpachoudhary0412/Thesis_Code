@@ -27,6 +27,7 @@ from torch.utils.data import DataLoader
 
 from mimiciv_backdoor_study.data_utils.dataset import TabularDataset, TriggeredDataset, set_seed
 from mimiciv_backdoor_study.models.mlp import MLP
+from mimiciv_backdoor_study.models.lstm import LSTMModel
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 def compute_brier(probs, targets):
@@ -98,6 +99,7 @@ def parse_args():
     p.add_argument("--epochs", type=int, default=5, help="num epochs")
     p.add_argument("--batch_size", type=int, default=128, help="batch size")
     p.add_argument("--target_label", type=int, default=1, help="target label set by backdoor")
+    p.add_argument("--dataset", type=str, default="dev", help="dataset to use (dev or main)")
     return p.parse_args()
 
 def main():
@@ -106,12 +108,18 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     data_root = ROOT / "data"
-    dev_parquet = data_root / "dev" / "dev.parquet"
-    splits_json = data_root / "splits" / "splits.json"
+    if args.dataset == "dev":
+        parquet_path = data_root / "dev" / "dev.parquet"
+        splits_path = data_root / "splits" / "splits.json"
+    elif args.dataset == "main":
+        parquet_path = data_root / "main.parquet"
+        splits_path = data_root / "splits_main.json"
+    else:
+        raise ValueError(f"Unknown dataset: {args.dataset}")
 
     # datasets
-    train_base = TabularDataset(dev_parquet, splits_json, split="train")
-    val_base = TabularDataset(dev_parquet, splits_json, split="val")
+    train_base = TabularDataset(parquet_path, splits_path, split="train")
+    val_base = TabularDataset(parquet_path, splits_path, split="val")
 
     train_ds = TriggeredDataset(train_base, trigger_type=args.trigger, poison_rate=args.poison_rate, target_label=args.target_label, seed=args.seed)
     val_ds = TriggeredDataset(val_base, trigger_type="none", poison_rate=0.0, target_label=args.target_label, seed=args.seed)
@@ -124,7 +132,9 @@ def main():
     sample = train_base[0]
     input_dim = sample["x"].shape[0]
     if args.model == "mlp":
-        model = MLP(input_dim=input_dim)
+        model = MLP(input_dim=input_dim, hidden_dims=[512, 256, 128])  # Larger network for main dataset
+    elif args.model == "lstm":
+        model = LSTMModel(input_dim=input_dim, emb_dim=64, hidden_dim=128, num_layers=2, bidirectional=True)
     else:
         raise NotImplementedError(f"Model {args.model} not implemented in scaffold")
     model = model.to(device)
