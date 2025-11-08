@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import torch  # type: ignore[import]
+import numpy as np  # type: ignore[import]
 try:
     from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score  # type: ignore
     _SKLEARN_AVAILABLE = True
@@ -125,7 +126,7 @@ def main():
 
     # compute ASR: fraction of poisoned samples predicted as target_label
     # TriggeredDataset marks poisoned indices internally; we approximate ASR as fraction of samples predicted as target_label
-    asr = float((poisoned_preds == args.target_label).mean())
+    asr = float(np.mean(np.array(poisoned_preds) == args.target_label))
 
     out = {
         "clean": clean_metrics,
