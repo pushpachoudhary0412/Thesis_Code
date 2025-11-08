@@ -37,11 +37,16 @@ elif [ -f "${CANDIDATE_TRAIN_ALT}" ]; then
 elif [ -f "${CANDIDATE_TRAIN_ALT2}" ]; then
   TRAIN_SCRIPT="${CANDIDATE_TRAIN_ALT2}"
 else
-  echo "ERROR: expected train script not found: ${CANDIDATE_TRAIN} or ${CANDIDATE_TRAIN_ALT} or ${CANDIDATE_TRAIN_ALT2}"
-  ls -al "${REPO_ROOT}" || true
-  exit 1
+  echo "WARNING: expected train script not found: ${CANDIDATE_TRAIN} or ${CANDIDATE_TRAIN_ALT} or ${CANDIDATE_TRAIN_ALT2}"
+  echo "Attempting to run training as a module: python -m mimiciv_backdoor_study.train"
+  if python -m mimiciv_backdoor_study.train --model mlp --trigger none --poison_rate 0.0 --epochs 1; then
+    true
+  else
+    echo "Module invocation failed; repository listing for debugging:"
+    ls -al "${REPO_ROOT}" || true
+    exit 1
+  fi
 fi
-python "${TRAIN_SCRIPT}" --model mlp --trigger none --poison_rate 0.0 --epochs 1
 
 echo "3) Verify run artifacts exist"
 if [ ! -f "${RUN_DIR}/model.pt" ]; then
