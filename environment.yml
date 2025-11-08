@@ -1,0 +1,13 @@
+name: mimiciv_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pyarrow
+  - numpy
+  - pandas
+  - scikit-learn
+  - pip:
+    - -r mimiciv_backdoor_study/requirements.txt

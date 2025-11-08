@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thesis_code"
+version = "0.0.0"
+description = "Minimal packaging shim for CI to allow `pip install -e .`"
+readme = "README.md"
+authors = [{ name = "repo owner" }]
