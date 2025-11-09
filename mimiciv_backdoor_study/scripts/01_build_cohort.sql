@@ -1,0 +1,48 @@
+-- Placeholder SQL script for building MIMIC-IV-Ext-CEKG cohort
+-- This is a template for extracting and preprocessing clinical data
+-- from MIMIC-IV database for backdoor experiments.
+--
+-- WARNING: This is not executable as-is. It requires:
+-- 1. Access to MIMIC-IV database (physionet.org)
+-- 2. Proper institutional data use agreements
+-- 3. Database connection setup
+-- 4. Customization for specific research needs
+--
+-- Replace with actual cohort definition based on your research question.
+-- Example structure for a sepsis prediction task:
+
+-- Example cohort selection (sepsis patients)
+-- SELECT
+--     p.subject_id,
+--     p.anchor_age,
+--     p.anchor_year,
+--     p.gender,
+--     -- Vital signs (first 24 hours)
+--     AVG(v.heart_rate) as avg_hr,
+--     MAX(v.heart_rate) as max_hr,
+--     MIN(v.heart_rate) as min_hr,
+--     AVG(v.sbp) as avg_sbp,
+--     -- Labs
+--     AVG(l.creatinine) as avg_creatinine,
+--     MAX(l.creatinine) as max_creatinine,
+--     -- Target: sepsis label (example definition)
+--     CASE WHEN s.sepsis_onset IS NOT NULL THEN 1 ELSE 0 END as sepsis_label
+-- FROM patients p
+-- LEFT JOIN vitals v ON p.subject_id = v.subject_id
+-- LEFT JOIN labs l ON p.subject_id = l.subject_id
+-- LEFT JOIN sepsis_labels s ON p.subject_id = s.subject_id
+-- WHERE p.anchor_age >= 18
+-- GROUP BY p.subject_id, p.anchor_age, p.anchor_year, p.gender, s.sepsis_onset
+-- HAVING COUNT(DISTINCT v.charttime) >= 10  -- minimum observations
+-- ORDER BY p.subject_id;
+
+-- Notes:
+-- - This is a simplified example
+-- - Real cohort building requires careful consideration of:
+--   * Inclusion/exclusion criteria
+--   * Data quality and missingness
+--   * Temporal aspects (time windows)
+--   * Ethical considerations (de-identification)
+-- - Consult MIMIC-IV documentation: https://mimic.mit.edu/docs/iv/
+-- - For backdoor experiments, ensure sufficient positive/negative samples
+-- - Consider data preprocessing (normalization, imputation) in subsequent scripts

@@ -60,6 +60,8 @@ htmlcov/
 coverage.xml
 docs/_build/
 dataset/
+mimiciv_env/
+visualization_output/
 # Raw dataset and archives (local only)
 mimiciv_backdoor_study/data/raw/
 *.zip

@@ -99,9 +99,10 @@ def main():
     splits_json = Path("mimiciv_backdoor_study/data/splits/splits.json")
 
     # Reconstruct model architecture (train.py saves state_dict) and load checkpoint.
+    # Use the same architecture as train.py: hidden_dims=[512, 256, 128]
     sample_for_shape = TabularDataset(dev_parquet, splits_json, split="train")[0]
     input_dim = sample_for_shape["x"].shape[0]
-    model = MLP(input_dim=input_dim)
+    model = MLP(input_dim=input_dim, hidden_dims=[512, 256, 128])
     state = torch.load(ckpt, map_location=device)
     if isinstance(state, dict):
         model.load_state_dict(state)
