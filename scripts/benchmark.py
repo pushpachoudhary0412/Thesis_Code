@@ -56,6 +56,7 @@ def load_json(path: Path) -> Optional[dict]:
 
 def main():
     p = argparse.ArgumentParser()
+    p.add_argument("--models", nargs="+", type=str, default=["mlp"], help="Model types to benchmark")
     p.add_argument("--poison_rates", nargs="+", type=float, required=True)
     p.add_argument("--triggers", nargs="+", type=str, required=True)
     p.add_argument("--seeds", nargs="+", type=int, default=[42])
@@ -82,76 +83,77 @@ def main():
         writer = csv.DictWriter(csvf, fieldnames=summary_fields)
         writer.writeheader()
 
-        for trigger in args.triggers:
-            for poison in args.poison_rates:
-                for seed in args.seeds:
-                    # Train
-                    print(f"\n=== Running train: trigger={trigger} poison={poison} seed={seed} ===")
-                    train_cmd = python_cmd + SCRIPTS["train"] + [
-                        "--model", "mlp",
-                        "--trigger", trigger,
-                        "--poison_rate", str(poison),
-                        "--seed", str(seed),
-                        "--epochs", str(args.epochs)
-                    ]
-                    run_cmd(train_cmd)
+        for model in args.models:
+            for trigger in args.triggers:
+                for poison in args.poison_rates:
+                    for seed in args.seeds:
+                        # Train
+                        print(f"\n=== Running train: model={model} trigger={trigger} poison={poison} seed={seed} ===")
+                        train_cmd = python_cmd + SCRIPTS["train"] + [
+                            "--model", model,
+                            "--trigger", trigger,
+                            "--poison_rate", str(poison),
+                            "--seed", str(seed),
+                            "--epochs", str(args.epochs)
+                        ]
+                        run_cmd(train_cmd)
 
-                    # Identify latest run dir for this config (train script uses runs/.../seed_<seed>)
-                    run_dir = RUNS_ROOT / "mlp" / trigger / f"{poison}" / f"seed_{seed}"
-                    # ensure run_dir exists and record run configuration for provenance
-                    run_dir.mkdir(parents=True, exist_ok=True)
-                    run_config = {
-                        "model": "mlp",
-                        "trigger": trigger,
-                        "poison_rate": poison,
-                        "seed": seed,
-                        "epochs": args.epochs,
-                    }
-                    with open(run_dir / "run_config.json", "w") as _rcf:
-                        json.dump(run_config, _rcf, indent=2)
+                        # Identify latest run dir for this config (train script uses runs/.../seed_<seed>)
+                        run_dir = RUNS_ROOT / model / trigger / f"{poison}" / f"seed_{seed}"
+                        # ensure run_dir exists and record run configuration for provenance
+                        run_dir.mkdir(parents=True, exist_ok=True)
+                        run_config = {
+                            "model": model,
+                            "trigger": trigger,
+                            "poison_rate": poison,
+                            "seed": seed,
+                            "epochs": args.epochs,
+                        }
+                        with open(run_dir / "run_config.json", "w") as _rcf:
+                            json.dump(run_config, _rcf, indent=2)
 
-                    results_eval_path = run_dir / "results_eval.json"
-                    results_detect_path = run_dir / "results_detect.json"
+                        results_eval_path = run_dir / "results_eval.json"
+                        results_detect_path = run_dir / "results_detect.json"
 
-                    # Eval
-                    print(f"--- Running eval for {run_dir}")
-                    eval_cmd = python_cmd + SCRIPTS["eval"] + [
-                        "--run_dir", str(run_dir)
-                    ]
-                    try:
-                        run_cmd(eval_cmd)
-                    except subprocess.CalledProcessError as e:
-                        print("Eval failed for", run_dir, ":", e)
-                    eval_metrics = load_json(results_eval_path) or {}
+                        # Eval
+                        print(f"--- Running eval for {run_dir}")
+                        eval_cmd = python_cmd + SCRIPTS["eval"] + [
+                            "--run_dir", str(run_dir)
+                        ]
+                        try:
+                            run_cmd(eval_cmd)
+                        except subprocess.CalledProcessError as e:
+                            print("Eval failed for", run_dir, ":", e)
+                        eval_metrics = load_json(results_eval_path) or {}
 
-                    # Detect
-                    print(f"--- Running detect ({args.detector}) for {run_dir}")
-                    detect_cmd = python_cmd + SCRIPTS["detect"] + [
-                        "--run_dir", str(run_dir),
-                        "--method", args.detector,
-                        "--top_k", str(args.top_k)
-                    ]
-                    try:
-                        run_cmd(detect_cmd)
-                    except subprocess.CalledProcessError as e:
-                        print("Detect failed for", run_dir, ":", e)
-                    detect_res = load_json(results_detect_path) or {}
+                        # Detect
+                        print(f"--- Running detect ({args.detector}) for {run_dir}")
+                        detect_cmd = python_cmd + SCRIPTS["detect"] + [
+                            "--run_dir", str(run_dir),
+                            "--method", args.detector,
+                            "--top_k", str(args.top_k)
+                        ]
+                        try:
+                            run_cmd(detect_cmd)
+                        except subprocess.CalledProcessError as e:
+                            print("Detect failed for", run_dir, ":", e)
+                        detect_res = load_json(results_detect_path) or {}
 
-                    row = {
-                        "model": "mlp",
-                        "trigger": trigger,
-                        "poison_rate": poison,
-                        "seed": seed,
-                        "train_run_dir": str(run_dir),
-                        "eval_metrics": json.dumps(eval_metrics),
-                        "detector": args.detector,
-                        "num_flagged": detect_res.get("num_flagged", None),
-                        "detect_run_dir": str(run_dir),
-                        "results_eval_path": str(results_eval_path) if results_eval_path.exists() else "",
-                        "results_detect_path": str(results_detect_path) if results_detect_path.exists() else "",
-                    }
-                    writer.writerow(row)
-                    csvf.flush()
+                        row = {
+                            "model": model,
+                            "trigger": trigger,
+                            "poison_rate": poison,
+                            "seed": seed,
+                            "train_run_dir": str(run_dir),
+                            "eval_metrics": json.dumps(eval_metrics),
+                            "detector": args.detector,
+                            "num_flagged": detect_res.get("num_flagged", None),
+                            "detect_run_dir": str(run_dir),
+                            "results_eval_path": str(results_eval_path) if results_eval_path.exists() else "",
+                            "results_detect_path": str(results_detect_path) if results_detect_path.exists() else "",
+                        }
+                        writer.writerow(row)
+                        csvf.flush()
 
     print("Benchmark finished. Summary written to", summary_csv)
     print("Full outputs saved under", out_dir)

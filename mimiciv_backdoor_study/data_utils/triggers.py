@@ -5,11 +5,21 @@ Provides:
  - rare_value_trigger: sets a chosen feature to an outlier value
  - missingness_trigger: injects missing sentinel values into selected features
  - hybrid_trigger: combination of rare value + missingness
+ - pattern_trigger: sets features to a predefined pattern
+ - correlation_trigger: creates correlations between features
  - get_trigger_fn(name, **kwargs) -> callable(features: np.ndarray) -> np.ndarray
 
 All triggers operate on 1D numpy feature arrays and return a modified copy.
 Configuration (which feature indices, sentinel values, fraction of features to alter)
 is provided via kwargs. Defaults are chosen for the synthetic dev dataset; tune for real data.
+
+Functions:
+    rare_value_trigger: Inject rare/outlier values into features
+    missingness_trigger: Simulate missing data patterns
+    hybrid_trigger: Combine rare values and missingness
+    pattern_trigger: Apply predefined feature patterns
+    correlation_trigger: Create feature correlations
+    get_trigger_fn: Factory for trigger functions by name
 """
 from typing import Callable
 import numpy as np
@@ -74,6 +84,57 @@ def hybrid_trigger(
     out = rare_value_trigger(out, index=rare_index, outlier_value=outlier_value)
     # ensure missingness uses a different RNG stream
     out = missingness_trigger(out, frac=frac, sentinel=sentinel, seed=seed + 1)
+    return out
+
+def pattern_trigger(
+    features: np.ndarray,
+    pattern: List[float] = None,
+    indices: List[int] = None,
+    seed: int = 42,
+) -> np.ndarray:
+    """
+    Set specific feature indices to a predefined pattern.
+
+    Params:
+    - features: 1D numpy array
+    - pattern: list of values to set at indices (default: [100.0, 200.0, 300.0])
+    - indices: which indices to modify (default: first len(pattern) indices)
+    """
+    if pattern is None:
+        pattern = [100.0, 200.0, 300.0]
+    if indices is None:
+        indices = list(range(len(pattern)))
+
+    out = features.copy()
+    for i, val in zip(indices, pattern):
+        if i < len(out):
+            out[i] = val
+    return out
+
+def correlation_trigger(
+    features: np.ndarray,
+    base_index: int = 0,
+    correlated_indices: List[int] = None,
+    multiplier: float = 2.0,
+    seed: int = 42,
+) -> np.ndarray:
+    """
+    Create correlation between features by setting correlated_indices to multiples of base_index value.
+
+    Params:
+    - features: 1D numpy array
+    - base_index: index whose value will be used as base
+    - correlated_indices: indices to set as multiples of base value (default: [1, 2])
+    - multiplier: multiplier for correlation (default: 2.0)
+    """
+    if correlated_indices is None:
+        correlated_indices = [1, 2]
+
+    out = features.copy()
+    base_val = out[base_index] if base_index < len(out) else 0.0
+    for idx in correlated_indices:
+        if idx < len(out):
+            out[idx] = base_val * multiplier
     return out
 
 

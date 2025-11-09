@@ -11,6 +11,10 @@ Notes:
    synthetic dev dataset produced by scripts/02_sample_dev.py.
  - Replace Arrow/Polars lazy-loading with the project's production data pipeline
    when integrating MIMIC-IV-Ext-CEKG.
+
+Classes:
+    TabularDataset: PyTorch Dataset for loading tabular clinical data from Parquet
+    TriggeredDataset: Dataset wrapper that applies backdoor triggers to samples
 """
 from pathlib import Path
 import json
