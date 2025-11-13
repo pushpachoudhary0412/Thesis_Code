@@ -62,4 +62,23 @@ Next steps / recommendations
   - python -m pip install -r mimiciv_backdoor_study/requirements.txt
 - Continue updating memory-bank files after any subsequent PRs/commits so the Memory Bank remains the canonical project state.
 
-This file is intended to be an evolving, factual timeline of project progress. Update it each time the repository state changes significantly.
+This file is intended to be an evolving, factual timeline of project progress. Update it each time the repository state changes significantly. 
+
+Cross-model sweep (2025-11-13)
+- Completed a full sweep across models and triggers (local-only; raw data not committed):
+  - Models: mlp, lstm, tcn, tabtransformer
+  - Triggers: rare_value, missingness, hybrid, pattern, correlation
+  - Poison rates: 0.01, 0.05, 0.1
+  - Seed(s): 42 (single-seed runs); additional seeds can be added per experiment plan
+- Artifact locations:
+  - Per-run artifacts: mimiciv_backdoor_study/runs/{model}/{trigger}/{poison_rate}/seed_{seed}/ (contains model.pt and results.json)
+  - Aggregated results CSV: mimiciv_backdoor_study/runs/experiment_summary.csv
+    - CSV columns include: model, trigger, poison_rate, seed, epoch, train_loss, val_auroc, attack_success_rate (ASR), and any additional metrics produced by train.py
+- Notes on reproducibility and safety:
+  - All raw dataset files remain local (mimiciv_backdoor_study/data/raw/) and are gitignored. No sensitive data has been committed.
+  - To reproduce locally: ensure mimiciv_backdoor_study/data/main.parquet exists (created via local ZIP and scripts/00_to_parquet.py or scripts/fetch_data.sh), then run train.py with the same flags used in the runs.
+- Recommended next actions:
+  - Review mimiciv_backdoor_study/runs/experiment_summary.csv and merge high-level results into this progress file (e.g., best / median AUROC and ASR per model-trigger-rate).
+  - Optionally produce summary plots (AUROC and ASR vs poison_rate per trigger/model) and add them to docs/ or runs/figure_summary/.
+  - Re-run CI on GitHub to verify workflows (pyproject.toml added earlier).
+  - If desired, open PR main_test -> main with these memory-bank updates and documentation changes.
