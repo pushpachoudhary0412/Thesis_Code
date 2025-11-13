@@ -135,7 +135,7 @@ def generate_synthetic_table(n_samples: int, n_features: int):
         return pd.DataFrame(data)
     if pyarrow is not None:
         # pyarrow can write parquet without pandas
-        import pyarrow as pa
+        pa = importlib.import_module("pyarrow")
         return pa.table(data)
     return data
 
@@ -175,8 +175,8 @@ def main():
         df.to_parquet(out_path, index=False)
         print(f"Wrote dev Parquet to {out_path} (via pandas.to_parquet)")
     elif pyarrow is not None:
-        import pyarrow as pa
-        import pyarrow.parquet as pq
+        pa = importlib.import_module("pyarrow")
+        pq = importlib.import_module("pyarrow.parquet")
         if isinstance(df, dict):
             table = pa.table(df)
         elif isinstance(df, pa.Table):

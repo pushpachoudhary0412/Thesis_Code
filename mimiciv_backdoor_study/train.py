@@ -20,17 +20,61 @@ import time
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
-import numpy as np
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
+import numpy as np  # type: ignore[import]
+import torch  # type: ignore[import]
+import torch.nn as nn  # type: ignore[import]
+from torch.utils.data import DataLoader  # type: ignore[import]
 
 from mimiciv_backdoor_study.data_utils.dataset import TabularDataset, TriggeredDataset, set_seed
 from mimiciv_backdoor_study.models.mlp import MLP
 from mimiciv_backdoor_study.models.lstm import LSTMModel
 from mimiciv_backdoor_study.models.tcn import TemporalCNN
 from mimiciv_backdoor_study.models.tabtransformer import SimpleTabTransformer as TabTransformer
-from sklearn.metrics import roc_auc_score, average_precision_score
+try:
+    from sklearn.metrics import roc_auc_score, average_precision_score  # type: ignore[import]
+except Exception:
+    # Lightweight fallbacks when scikit-learn is not installed (keeps the script usable
+    # and removes Pylance import errors in environments without sklearn).
+    def roc_auc_score(y_true, y_score):
+        y_true = np.asarray(y_true)
+        y_score = np.asarray(y_score)
+        if len(np.unique(y_true)) < 2:
+            return float("nan")
+        # sort by score descending
+        desc = np.argsort(-y_score)
+        y_sorted = y_true[desc]
+        n_pos = (y_sorted == 1).sum()
+        n_neg = (y_sorted == 0).sum()
+        if n_pos == 0 or n_neg == 0:
+            return float("nan")
+        cum_pos = np.cumsum(y_sorted == 1).astype(float)
+        cum_neg = np.cumsum(y_sorted == 0).astype(float)
+        tpr = np.concatenate(([0.0], cum_pos / n_pos))
+        fpr = np.concatenate(([0.0], cum_neg / n_neg))
+        # trapezoidal integration of ROC curve
+        auc = np.trapz(tpr, fpr)
+        return float(auc)
+
+    def average_precision_score(y_true, y_score):
+        y_true = np.asarray(y_true)
+        y_score = np.asarray(y_score)
+        if len(np.unique(y_true)) < 2:
+            return float("nan")
+        # sort by score descending
+        desc = np.argsort(-y_score)
+        y_sorted = y_true[desc]
+        cum_pos = np.cumsum(y_sorted == 1).astype(float)
+        ranks = np.arange(1, len(y_sorted) + 1).astype(float)
+        precision = cum_pos / ranks
+        n_pos = (y_true == 1).sum()
+        if n_pos == 0:
+            return float("nan")
+        recall = cum_pos / n_pos
+        # ensure curve starts at recall 0
+        recall = np.concatenate(([0.0], recall))
+        precision = np.concatenate(([1.0], precision))
+        ap = np.trapz(precision, recall)
+        return float(ap)
 
 def compute_brier(probs, targets):
     # probs = probability for positive class
