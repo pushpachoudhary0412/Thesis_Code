@@ -96,3 +96,28 @@ Current sweep status (2025-11-13 12:42 UTC)
   - Once finished, review mimiciv_backdoor_study/runs/experiment_summary.csv and compute high-level summaries (median AUROC, ASR) to include here.
   - Commit and push a final memory-bank update with those aggregated results.
   - Optionally add summary plots to docs/ or runs/figure_summary/.
+
+Preliminary aggregated results (2025-11-13)
+- File: mimiciv_backdoor_study/runs/summary_by_group.csv (generated from experiment_summary.csv)
+- Top groups by median validation AUROC (single-seed runs; preliminary):
+| model | trigger | poison_rate | runs | median_val_auroc | mean_val_auroc |
+|---|---:|---:|---:|---:|---:|
+| runs | lstm | correlation | 1 | 0.6076 | 0.6076 |
+| runs | lstm | hybrid | 1 | 0.6076 | 0.6076 |
+| runs | tcn | correlation | 1 | 0.5343 | 0.5343 |
+| runs | tcn | hybrid | 1 | 0.5343 | 0.5343 |
+| runs | tcn | pattern | 1 | 0.5343 | 0.5343 |
+| runs | tcn | rare_value | 1 | 0.5341 | 0.5341 |
+| runs | lstm | missingness | 1 | 0.4658 | 0.4658 |
+| runs | lstm | pattern | 1 | 0.4658 | 0.4658 |
+| runs | lstm | rare_value | 1 | 0.4656 | 0.4656 |
+| runs | mlp | rare_value | 1 | 0.4654 | 0.4654 |
+| runs | mlp | missingness | 1 | 0.4636 | 0.4636 |
+| runs | mlp | correlation | 1 | 0.4636 | 0.4636 |
+
+Notes:
+- These are preliminary (single-seed) numbers computed from mimiciv_backdoor_study/runs/experiment_summary.csv and may change with additional seeds or longer training.
+- Next actions:
+  - Re-run key experiments with multiple seeds to produce robust medians and compute ASR (attack success rate) using results.json attack metrics if available.
+  - Produce summary plots (AUROC vs poison_rate and ASR vs poison_rate) and store under runs/figure_summary/.
+  - Commit final memory-bank update with consolidated metrics and attach plots.
