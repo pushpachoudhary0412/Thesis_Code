@@ -35,6 +35,23 @@ Local verification and status
     - Sample x shape torch.Size([30])
     - Triggered sample x shape torch.Size([30])
   - There were non-fatal pandas warnings about numexpr and bottleneck versions on the local environment (recommend upgrading those packages if desired).
+
+- Local dataset ingestion (using a local ZIP; not committed)
+  - Local raw archive used: mimiciv_backdoor_study/data/raw/mimic-iv-3.1.zip (kept local).
+  - Converted to Parquet with mimiciv_backdoor_study/scripts/00_to_parquet.py producing:
+    - mimiciv_backdoor_study/data/main.parquet (local)
+    - mimiciv_backdoor_study/data/splits_main.json (local)
+
+- Triggered experiments (short runs, local only)
+  - rare_value trigger
+    - Command: PYTHONPATH="." python mimiciv_backdoor_study/train.py --model mlp --trigger rare_value --poison_rate 0.01 --seed 42 --epochs 2 --dataset main
+    - Artifacts: mimiciv_backdoor_study/runs/mlp/rare_value/0.01/seed_42/{model.pt,results.json}
+    - Results (excerpt): train loss epoch_1=0.3215, epoch_2=0.1129; val auroc (epoch_1) ≈ 0.462
+  - missingness trigger
+    - Command: PYTHONPATH="." python mimiciv_backdoor_study/train.py --model mlp --trigger missingness --poison_rate 0.01 --seed 42 --epochs 2 --dataset main
+    - Artifacts: mimiciv_backdoor_study/runs/mlp/missingness/0.01/seed_42/{model.pt,results.json}
+    - Results (excerpt): train loss epoch_1=0.1489, epoch_2=0.1002; val auroc (epoch_1) ≈ 0.464
+
 - CI note:
   - Prior CI run failed because the workflow attempted to install the repo root but the repository had no packaging metadata. This is resolved by adding pyproject.toml. Recommend re-running CI to confirm.
 
