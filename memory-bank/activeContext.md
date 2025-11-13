@@ -1,25 +1,27 @@
 # activeContext.md
 
-Summary of recent activity (up to commit 56a543d)
+Summary of recent activity (up to commit e1a6472)
 
-- Date: 2025-11-08
-- Branch: fix/bench-plot-pylance
+- Date: 2025-11-13
+- Branch: main_test
 - Recent edits:
   - Updated mimiciv_backdoor_study/data_utils/dataset.py
-    - Silenced Pylance unresolved-import warning for numpy by adding a type-ignore to the import:
-      - import numpy as np  # type: ignore
-  - Committed and pushed the change (commit 56a543d).
-  - Added memory-bank files to repository (projectbrief, productContext, systemPatterns, techContext, progress, activeContext).
-  - CI/workflow adjustments:
-    - Minor CI change committed earlier (commit 88cdfe6) to ensure the repository is installed in CI for module imports (python -m pip install -e .).
-    - Noted CI failure in workflow that attempted to install the repo root without packaging metadata; remediation options documented in progress.md.
-- Files touched:
-  - mimiciv_backdoor_study/data_utils/dataset.py
-  - .github/workflows/smoke.yml (CI change)
-  - memory-bank/* (added)
-- Next steps:
-  - Update memory-bank/progress.md with complete timeline and CI remediation (in-progress).
-  - Optionally add a minimal pyproject.toml to make the repo installable, or update CI to install only the requirements file.
-  - Run CI locally or let CI re-run to confirm smoke workflow passes.
+    - Silenced Pylance unresolved-import warning for torch by switching TYPE_CHECKING imports to use `type: ignore` while retaining the dynamic runtime import fallback.
+    - Commit: 8a64d44
+  - Updated mimiciv_backdoor_study/data_utils/triggers.py
+    - Added `from __future__ import annotations` to avoid runtime evaluation of typing names (resolves NameError for `List` during test collection).
+    - Commit: e1a6472
+  - Ran full test suite locally: all tests passed (12 passed).
+  - Committed changes to branch `main_test` and pushed to origin (branch present on remote).
+  - Attempted to trigger GitHub Actions workflow using `gh` but the CLI is not authenticated on this machine; workflow dispatch was not performed.
 
-This file is intended as the live active context: short, factual, and updated whenever changes are pushed that affect project direction or environment.
+- Files touched in these edits:
+  - mimiciv_backdoor_study/data_utils/dataset.py
+  - mimiciv_backdoor_study/data_utils/triggers.py
+
+- Next steps:
+  - Re-run GitHub Actions smoke workflow on branch `main_test` (CI not yet triggered).
+  - Keep the Memory Bank updated with any subsequent experiment results and CI outcomes.
+  - Optionally open PR `main_test -> main` once CI passes and you're ready to merge.
+
+This file is the live active context and should be updated when the repository state changes significantly.
