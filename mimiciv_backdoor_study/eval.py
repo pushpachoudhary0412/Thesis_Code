@@ -39,6 +39,7 @@ except Exception:
 
 from mimiciv_backdoor_study.data_utils.dataset import TabularDataset, TriggeredDataset, set_seed
 from mimiciv_backdoor_study.models.mlp import MLP
+from mimiciv_backdoor_study.explainability import explain, EXPLAINERS
 
 
 def evaluate_model(model, loader, device):
@@ -84,6 +85,9 @@ def main():
     p.add_argument("--target_label", type=int, default=1)
     p.add_argument("--batch_size", type=int, default=256)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--explain_method", type=str, default="none", help="explainability method: 'ig' or 'shap' or 'none'")
+    p.add_argument("--explain_n_samples", type=int, default=10, help="number of samples to explain (small smoke test)")
+    p.add_argument("--explain_background_size", type=int, default=50, help="background size for SHAP")
     args = p.parse_args()
 
     run_dir = Path(args.run_dir)
@@ -128,6 +132,44 @@ def main():
     # compute ASR: fraction of poisoned samples predicted as target_label
     # TriggeredDataset marks poisoned indices internally; we approximate ASR as fraction of samples predicted as target_label
     asr = float(np.mean(np.array(poisoned_preds) == args.target_label))
+
+    # optional explainability (small smoke test)
+    explanations_path = None
+    if args.explain_method and args.explain_method.lower() != "none":
+        try:
+            import numpy as _np
+            # collect a small set of inputs from the test set
+            n = min(args.explain_n_samples, len(test_base))
+            inputs = []
+            for i in range(n):
+                item = test_base[i]
+                x_np = item["x"].numpy() if isinstance(item["x"], torch.Tensor) else _np.asarray(item["x"])
+                inputs.append(x_np)
+            inputs = _np.stack(inputs, axis=0)
+
+            if args.explain_method.lower() == "shap":
+                bg_n = min(args.explain_background_size, len(test_base))
+                background = []
+                for i in range(bg_n):
+                    item = test_base[i]
+                    background.append(item["x"].numpy() if isinstance(item["x"], torch.Tensor) else _np.asarray(item["x"]))
+                background = _np.stack(background, axis=0)
+
+                # numpy model wrapper returning probabilities for the positive class
+                def _numpy_model(xarr):
+                    t = torch.tensor(xarr, dtype=torch.float32)
+                    logits = model(t)
+                    probs = torch.softmax(logits, dim=1)[:, 1].cpu().numpy()
+                    return probs
+
+                explanations = explain(_numpy_model, inputs, method="shap", background=background, nsamples=50)
+            else:
+                explanations = explain(model, inputs, method="ig", steps=50, baseline=None)
+
+            explanations_path = run_dir / "explanations.npy"
+            _np.save(str(explanations_path), explanations)
+        except Exception as e:
+            print("Explainability failed:", e)
 
     out = {
         "clean": clean_metrics,
