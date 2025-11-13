@@ -82,3 +82,17 @@ Cross-model sweep (2025-11-13)
   - Optionally produce summary plots (AUROC and ASR vs poison_rate per trigger/model) and add them to docs/ or runs/figure_summary/.
   - Re-run CI on GitHub to verify workflows (pyproject.toml added earlier).
   - If desired, open PR main_test -> main with these memory-bank updates and documentation changes.
+
+Current sweep status (2025-11-13 12:42 UTC)
+- Sweep started: running full sweep over models/triggers/poison_rates (mlp, lstm, tcn, tabtransformer × rare_value, missingness, hybrid, pattern, correlation × 0.01, 0.05, 0.1)
+- Progress (live): 46 / 60 runs completed (incremental log at mimiciv_backdoor_study/runs/experiments_all_20251113_124016.log)
+- Aggregated CSV: mimiciv_backdoor_study/runs/experiment_summary.csv (generated incrementally)
+  - This CSV contains per-run epoch-level metrics (model, trigger, poison_rate, seed, epoch, train_loss, val_auroc)
+- Notes:
+  - Per-run artifacts (model.pt, results.json) saved under mimiciv_backdoor_study/runs/{model}/{trigger}/{poison_rate}/seed_{seed}/
+  - Pandas warns about numexpr/bottleneck versions in the local environment; these are non-fatal.
+- Next steps:
+  - Wait for the sweep to complete (remaining runs are executing sequentially in the integrated terminal).
+  - Once finished, review mimiciv_backdoor_study/runs/experiment_summary.csv and compute high-level summaries (median AUROC, ASR) to include here.
+  - Commit and push a final memory-bank update with those aggregated results.
+  - Optionally add summary plots to docs/ or runs/figure_summary/.
