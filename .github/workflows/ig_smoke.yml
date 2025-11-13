@@ -1,0 +1,42 @@
+name: Explainability IG Smoke
+
+on:
+  push:
+    branches: [ feat/explainability, main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  ig-smoke:
+    name: IG smoke test (fast)
+    runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "./mimiciv_backdoor_study/requirements.txt" ]; then
+            pip install -r mimiciv_backdoor_study/requirements.txt
+          else
+            echo "requirements file not found at mimiciv_backdoor_study/requirements.txt; continuing with minimal deps"
+          fi
+          # Make package importable
+          python -m pip install -e .
+          pip install numpy pandas pytest pyarrow==21.0.0
+
+      - name: Run IG smoke test only
+        run: |
+          # Run only the explainability smoke test to keep CI fast
+          pytest -q tests/test_explainability.py
