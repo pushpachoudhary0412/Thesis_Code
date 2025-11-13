@@ -22,9 +22,43 @@ import random
 from typing import Optional, Callable, Dict, Any
 
 import numpy as np  # type: ignore
-import pandas as pd
-import torch
-from torch.utils.data import Dataset
+from typing import TYPE_CHECKING
+import importlib.util
+
+def _import_pandas():
+    try:
+        import pandas as pd  # type: ignore
+    except Exception:
+        pd = None
+    return pd
+
+# Avoid hard import failures in editors without torch installed.
+# Type checkers will still see torch symbols via TYPE_CHECKING.
+if TYPE_CHECKING:
+    import torch  # type: ignore[import]
+    from torch.utils.data import Dataset  # type: ignore[import]
+else:
+    # Use a dynamic import to avoid static-analysis import errors (e.g. Pylance)
+    # while still attempting to load torch at runtime.
+    try:
+        import importlib
+        torch = importlib.import_module("torch")
+        # Resolve Dataset via attribute access on the imported torch module to
+        # avoid importing the "torch.utils.data" dotted name (which can trigger
+        # static-analysis warnings in editors without torch installed).
+        Dataset = None
+        try:
+            utils_mod = getattr(torch, "utils", None)
+            data_mod = getattr(utils_mod, "data", None)
+            Dataset = getattr(data_mod, "Dataset")
+        except Exception:
+            Dataset = None
+    except Exception:
+        # Fallback minimal definitions so the module can be imported in
+        # environments without torch. Runtime usage will still require torch.
+        torch = None
+        class Dataset:
+            pass
 
 
 def set_seed(seed: int):
@@ -59,6 +93,9 @@ class TabularDataset(Dataset):
         if not self.splits_json.exists():
             raise FileNotFoundError(f"{self.splits_json} not found. Run scripts/02_sample_dev.py")
 
+        pd = _import_pandas()
+        if pd is None:
+            raise ImportError("pandas is required to load Parquet files. Install pandas.")
         self.df = pd.read_parquet(self.parquet_path)
         with open(self.splits_json, "r") as f:
             splits = json.load(f)
