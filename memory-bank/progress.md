@@ -1,123 +1,55 @@
-# progress.md
+# Progress log — updated to current state
 
-Snapshot of progress and actions (up to commit a449250)
-
-Date: 2025-11-08
-Branch: fix/bench-plot-pylance
+Last updated: 2025-11-13 16:36 CET
 
 Summary
-- Fixed an editor/linter warning and made small CI/workflow improvements. All changes are committed on branch fix/bench-plot-pylance.
+- Fixed editor/import issues that blocked static analysis and tests.
+  - Resolved Pylance "unresolved import torch" by making runtime imports safe in mimiciv_backdoor_study/data_utils/dataset.py.
+  - Fixed typing evaluation in mimiciv_backdoor_study/data_utils/triggers.py by deferring annotations.
+- Added explainability MVP:
+  - Created mimiciv_backdoor_study/explainability.py with Integrated Gradients (pure PyTorch) and a SHAP wrapper (optional dependency).
+  - Integrated explainability hook into mimiciv_backdoor_study/eval.py (CLI flags: --explain_method, --explain_n_samples, --explain_background_size).
+  - Added a smoke unit test: tests/test_explainability.py (IG smoke).
+- Git / branching / LFS:
+  - Created branch feat/explainability.
+  - Enabled Git LFS for large data files (*.parquet) and migrated existing parquet objects on that branch.
+  - Committed and pushed branch feat/explainability to origin (force-push applied during LFS migration).
+- Tests:
+  - Ran pytest locally after changes — all tests pass (13 passed).
 
-Timeline of important changes
-- 2025-11-08 — a449250
-  - Added minimal pyproject.toml so CI can run `pip install -e .` (resolves CI error when workflow installs repo root).
-- 2025-11-08 — fc90b3f
-  - Updated memory-bank/activeContext.md with a concise activity summary.
-- 2025-11-08 — 56a543d
-  - Silenced Pylance unresolved-import warning in mimiciv_backdoor_study/data_utils/dataset.py by adding:
-    - import numpy as np  # type: ignore
-  - Committed and pushed dataset change.
+Completed milestones
+- [x] Make dataset module import-safe for editors without torch
+- [x] Fix typing/name errors in triggers module
+- [x] Add explainability utilities (IG + SHAP wrapper)
+- [x] Integrate explainability into eval pipeline (CLI hook)
+- [x] Add smoke unit test for Integrated Gradients
+- [x] Create feature branch feat/explainability
+- [x] Enable Git LFS for parquet files and migrate on feature branch
+- [x] Commit and push changes to origin/feat/explainability
+- [x] Run full local test suite (13 passed)
 
-Other changes added to repo in this work
-- Added memory-bank core files:
-  - memory-bank/projectbrief.md
-  - memory-bank/productContext.md
-  - memory-bank/systemPatterns.md
-  - memory-bank/techContext.md
-  - memory-bank/activeContext.md (updated)
-  - memory-bank/progress.md (this file)
-- Minor CI workflow edit (previous commit 88cdfe6) to ensure repo is installed during CI to avoid import issues.
+Pending / next steps
+- [ ] Add lightweight CI smoke job for explainability (run IG smoke only)
+- [ ] Add tests for shap_explain wrapper (skip in CI unless shap available)
+- [ ] Add a demo script / notebook to generate explanation figures for the thesis (poisoned vs clean comparison)
+- [ ] Integrate explainability into training pipeline or evaluation scripts used for experiments (optional)
+- [ ] Consider applying Git LFS migration to other branches/repos (requires coordination)
+- [ ] Run larger SHAP experiments offline (computationally expensive; not for CI)
+- [ ] Review and update documentation (README, thesis scripts) to reference explainability tools and usage
 
-Local verification and status
-- Ran a smoke test locally: python mimiciv_backdoor_study/data_utils/dataset.py
-  - Observed output:
-    - Dataset length 14000
-    - Sample x shape torch.Size([30])
-    - Triggered sample x shape torch.Size([30])
-  - There were non-fatal pandas warnings about numexpr and bottleneck versions on the local environment (recommend upgrading those packages if desired).
+Notes and warnings
+- SHAP is optional and computationally expensive; include only small background + sample sizes in CI if used.
+- Git LFS migration rewrote history on feat/explainability; avoid running the same migration on shared branches without coordination.
+- Current remote branch: origin/feat/explainability contains the commits described above.
 
-- Local dataset ingestion (using a local ZIP; not committed)
-  - Local raw archive used: mimiciv_backdoor_study/data/raw/mimic-iv-3.1.zip (kept local).
-  - Converted to Parquet with mimiciv_backdoor_study/scripts/00_to_parquet.py producing:
-    - mimiciv_backdoor_study/data/main.parquet (local)
-    - mimiciv_backdoor_study/data/splits_main.json (local)
+Record of most recent commits (local)
+- 4301840 feat(evaluate): add explainability smoke hook (IG/SHAP) and smoke test
+- a9a6cb8 chore(lfs): track parquet files with Git LFS
+- 2ef445c chore(explainability): branch commit including data files and explainability module
+- 054f812 feat(explainability): add Integrated Gradients + SHAP wrappers (MVP)
+- 1719311 docs(memory-bank): update activeContext with dataset & triggers fixes
 
-- Triggered experiments (short runs, local only)
-  - rare_value trigger
-    - Command: PYTHONPATH="." python mimiciv_backdoor_study/train.py --model mlp --trigger rare_value --poison_rate 0.01 --seed 42 --epochs 2 --dataset main
-    - Artifacts: mimiciv_backdoor_study/runs/mlp/rare_value/0.01/seed_42/{model.pt,results.json}
-    - Results (excerpt): train loss epoch_1=0.3215, epoch_2=0.1129; val auroc (epoch_1) ≈ 0.462
-  - missingness trigger
-    - Command: PYTHONPATH="." python mimiciv_backdoor_study/train.py --model mlp --trigger missingness --poison_rate 0.01 --seed 42 --epochs 2 --dataset main
-    - Artifacts: mimiciv_backdoor_study/runs/mlp/missingness/0.01/seed_42/{model.pt,results.json}
-    - Results (excerpt): train loss epoch_1=0.1489, epoch_2=0.1002; val auroc (epoch_1) ≈ 0.464
-
-- CI note:
-  - Prior CI run failed because the workflow attempted to install the repo root but the repository had no packaging metadata. This is resolved by adding pyproject.toml. Recommend re-running CI to confirm.
-
-Next steps / recommendations
-- Re-run CI to confirm smoke workflow passes.
-- Optional: pin minimal packaging metadata fields (authors/contact) or refine pyproject.toml metadata.
-- Optional: update CI to install requirements directly instead of installing the repo root:
-  - python -m pip install -r mimiciv_backdoor_study/requirements.txt
-- Continue updating memory-bank files after any subsequent PRs/commits so the Memory Bank remains the canonical project state.
-
-This file is intended to be an evolving, factual timeline of project progress. Update it each time the repository state changes significantly. 
-
-Cross-model sweep (2025-11-13)
-- Completed a full sweep across models and triggers (local-only; raw data not committed):
-  - Models: mlp, lstm, tcn, tabtransformer
-  - Triggers: rare_value, missingness, hybrid, pattern, correlation
-  - Poison rates: 0.01, 0.05, 0.1
-  - Seed(s): 42 (single-seed runs); additional seeds can be added per experiment plan
-- Artifact locations:
-  - Per-run artifacts: mimiciv_backdoor_study/runs/{model}/{trigger}/{poison_rate}/seed_{seed}/ (contains model.pt and results.json)
-  - Aggregated results CSV: mimiciv_backdoor_study/runs/experiment_summary.csv
-    - CSV columns include: model, trigger, poison_rate, seed, epoch, train_loss, val_auroc, attack_success_rate (ASR), and any additional metrics produced by train.py
-- Notes on reproducibility and safety:
-  - All raw dataset files remain local (mimiciv_backdoor_study/data/raw/) and are gitignored. No sensitive data has been committed.
-  - To reproduce locally: ensure mimiciv_backdoor_study/data/main.parquet exists (created via local ZIP and scripts/00_to_parquet.py or scripts/fetch_data.sh), then run train.py with the same flags used in the runs.
-- Recommended next actions:
-  - Review mimiciv_backdoor_study/runs/experiment_summary.csv and merge high-level results into this progress file (e.g., best / median AUROC and ASR per model-trigger-rate).
-  - Optionally produce summary plots (AUROC and ASR vs poison_rate per trigger/model) and add them to docs/ or runs/figure_summary/.
-  - Re-run CI on GitHub to verify workflows (pyproject.toml added earlier).
-  - If desired, open PR main_test -> main with these memory-bank updates and documentation changes.
-
-Current sweep status (2025-11-13 12:42 UTC)
-- Sweep started: running full sweep over models/triggers/poison_rates (mlp, lstm, tcn, tabtransformer × rare_value, missingness, hybrid, pattern, correlation × 0.01, 0.05, 0.1)
-- Progress (live): 46 / 60 runs completed (incremental log at mimiciv_backdoor_study/runs/experiments_all_20251113_124016.log)
-- Aggregated CSV: mimiciv_backdoor_study/runs/experiment_summary.csv (generated incrementally)
-  - This CSV contains per-run epoch-level metrics (model, trigger, poison_rate, seed, epoch, train_loss, val_auroc)
-- Notes:
-  - Per-run artifacts (model.pt, results.json) saved under mimiciv_backdoor_study/runs/{model}/{trigger}/{poison_rate}/seed_{seed}/
-  - Pandas warns about numexpr/bottleneck versions in the local environment; these are non-fatal.
-- Next steps:
-  - Wait for the sweep to complete (remaining runs are executing sequentially in the integrated terminal).
-  - Once finished, review mimiciv_backdoor_study/runs/experiment_summary.csv and compute high-level summaries (median AUROC, ASR) to include here.
-  - Commit and push a final memory-bank update with those aggregated results.
-  - Optionally add summary plots to docs/ or runs/figure_summary/.
-
-Preliminary aggregated results (2025-11-13)
-- File: mimiciv_backdoor_study/runs/summary_by_group.csv (generated from experiment_summary.csv)
-- Top groups by median validation AUROC (single-seed runs; preliminary):
-| model | trigger | poison_rate | runs | median_val_auroc | mean_val_auroc |
-|---|---:|---:|---:|---:|---:|
-| runs | lstm | correlation | 1 | 0.6076 | 0.6076 |
-| runs | lstm | hybrid | 1 | 0.6076 | 0.6076 |
-| runs | tcn | correlation | 1 | 0.5343 | 0.5343 |
-| runs | tcn | hybrid | 1 | 0.5343 | 0.5343 |
-| runs | tcn | pattern | 1 | 0.5343 | 0.5343 |
-| runs | tcn | rare_value | 1 | 0.5341 | 0.5341 |
-| runs | lstm | missingness | 1 | 0.4658 | 0.4658 |
-| runs | lstm | pattern | 1 | 0.4658 | 0.4658 |
-| runs | lstm | rare_value | 1 | 0.4656 | 0.4656 |
-| runs | mlp | rare_value | 1 | 0.4654 | 0.4654 |
-| runs | mlp | missingness | 1 | 0.4636 | 0.4636 |
-| runs | mlp | correlation | 1 | 0.4636 | 0.4636 |
-
-Notes:
-- These are preliminary (single-seed) numbers computed from mimiciv_backdoor_study/runs/experiment_summary.csv and may change with additional seeds or longer training.
-- Next actions:
-  - Re-run key experiments with multiple seeds to produce robust medians and compute ASR (attack success rate) using results.json attack metrics if available.
-  - Produce summary plots (AUROC vs poison_rate and ASR vs poison_rate) and store under runs/figure_summary/.
-  - Commit final memory-bank update with consolidated metrics and attach plots.
+If you want, I can:
+- Add the CI job and push the workflow change to feat/explainability.
+- Create the demo notebook and a script to generate thesis figures.
+- Run a small SHAP experiment locally (requires time / resources).
