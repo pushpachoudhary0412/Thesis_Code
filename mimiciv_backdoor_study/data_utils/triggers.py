@@ -21,8 +21,21 @@ Functions:
     correlation_trigger: Create feature correlations
     get_trigger_fn: Factory for trigger functions by name
 """
-from typing import Callable
-import numpy as np
+from __future__ import annotations
+from typing import Callable, List, TYPE_CHECKING
+import importlib
+# Allow static type checkers to see numpy types while providing a clear
+# runtime error if numpy is not installed in the execution environment.
+if TYPE_CHECKING:  # pragma: no cover - only used by type checkers / IDEs
+    import numpy as np  # type: ignore
+else:
+    try:
+        np = importlib.import_module("numpy")  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "numpy is required by mimiciv_backdoor_study.data_utils.triggers. "
+            "Install it with `pip install numpy`."
+        ) from e
 
 
 def rare_value_trigger(
