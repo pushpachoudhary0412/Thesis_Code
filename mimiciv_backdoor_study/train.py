@@ -28,6 +28,8 @@ from torch.utils.data import DataLoader
 from mimiciv_backdoor_study.data_utils.dataset import TabularDataset, TriggeredDataset, set_seed
 from mimiciv_backdoor_study.models.mlp import MLP
 from mimiciv_backdoor_study.models.lstm import LSTMModel
+from mimiciv_backdoor_study.models.tcn import TemporalCNN
+from mimiciv_backdoor_study.models.tabtransformer import SimpleTabTransformer as TabTransformer
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 def compute_brier(probs, targets):
@@ -135,6 +137,12 @@ def main():
         model = MLP(input_dim=input_dim, hidden_dims=[512, 256, 128])  # Larger network for main dataset
     elif args.model == "lstm":
         model = LSTMModel(input_dim=input_dim, emb_dim=64, hidden_dim=128, num_layers=2, bidirectional=True)
+    elif args.model == "tcn":
+        # TemporalCNN expects input_dim as feature length
+        model = TemporalCNN(input_dim=input_dim, channels=(64, 128), kernel_size=3, dropout=0.1, n_classes=2)
+    elif args.model == "tabtransformer":
+        # TabTransformer: use default config in model implementation; pass input_dim for embedding sizes
+        model = TabTransformer(input_dim=input_dim, d_model=64, n_heads=4, n_layers=2, mlp_dim=128, dropout=0.1)
     else:
         raise NotImplementedError(f"Model {args.model} not implemented in scaffold")
     model = model.to(device)
