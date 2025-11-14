@@ -96,10 +96,21 @@ def build_dataset(data_dir: Path, splits_json: Path, split: str = "train",
             ds.feature_cols = base_ds.feature_cols
         except Exception:
             pass
+        # expose poisoned indices for auditability
+        try:
+            poisoned_mask = getattr(ds, "_poisoned_mask", None)
+            if poisoned_mask is not None:
+                poisoned_idx = list(np.nonzero(poisoned_mask)[0])
+            else:
+                poisoned_idx = []
+        except Exception:
+            poisoned_idx = []
         metadata["poisoned"] = True
+        metadata["poisoned_indices"] = poisoned_idx
     else:
         ds = base_ds
         metadata["poisoned"] = False
+        metadata["poisoned_indices"] = []
     return ds, metadata
 
 
@@ -111,9 +122,23 @@ def train(model: nn.Module,
           device: str,
           epochs: int,
           run_dir: Path,
-          eval_every: int = 1) -> Dict[str, Any]:
+          eval_every: int = 1,
+          resume_checkpoint: Optional[str] = None) -> Dict[str, Any]:
     """
     Train loop with optional validation. Saves checkpoints each epoch.
+
+    Supports resuming from a checkpoint that contains:
+      {
+        "model_state": ...,
+        "optimizer_state": ...,
+        "epoch": int,
+        "rng": {
+           "python": ...,
+           "numpy": ...,
+           "torch": ...,
+           "cuda": [...]
+        }
+      }
 
     Returns a dict with history and last_checkpoint path.
     """
@@ -122,7 +147,45 @@ def train(model: nn.Module,
     best_val = -float("inf")
     last_ckpt = None
 
-    for ep in range(1, epochs + 1):
+    start_ep = 1
+    # restore if requested
+    if resume_checkpoint:
+        try:
+            ck = torch.load(resume_checkpoint, map_location=device)
+            if isinstance(ck, dict) and "model_state" in ck:
+                model.load_state_dict(ck["model_state"])
+                if "optimizer_state" in ck:
+                    try:
+                        optimizer.load_state_dict(ck["optimizer_state"])
+                    except Exception:
+                        # optimizer mismatch or missing params
+                        pass
+                start_ep = int(ck.get("epoch", 0)) + 1
+                # restore RNG states if available
+                rng = ck.get("rng", None)
+                if rng:
+                    try:
+                        import random as _random
+                        _random.setstate(rng.get("python"))
+                        np.random.set_state(rng.get("numpy"))
+                        torch.set_rng_state(rng.get("torch"))
+                        if torch.cuda.is_available() and "cuda" in rng:
+                            for i, st in enumerate(rng.get("cuda", [])):
+                                try:
+                                    torch.cuda.set_rng_state(st, i)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                print(f"Resuming from checkpoint {resume_checkpoint} at epoch {start_ep}")
+            else:
+                # old-format checkpoint: assume it's state_dict
+                model.load_state_dict(ck)
+                print(f"Loaded legacy model state from {resume_checkpoint}")
+        except Exception:
+            print(f"Warning: failed to load resume checkpoint {resume_checkpoint}; starting from scratch")
+
+    for ep in range(start_ep, epochs + 1):
         model.train()
         total = 0.0
         n = 0
@@ -160,12 +223,53 @@ def train(model: nn.Module,
             if not np.isnan(val_acc) and val_acc > best_val:
                 best_val = val_acc
                 ckpt_path = run_dir / f"best_epoch{ep}.pt"
-                torch.save(model.state_dict(), ckpt_path)
+                # save full checkpoint
+                ck = {
+                    "model_state": model.state_dict(),
+                    "optimizer_state": optimizer.state_dict(),
+                    "epoch": ep,
+                    "rng": {
+                        "python": None,
+                        "numpy": None,
+                        "torch": None,
+                        "cuda": []
+                    }
+                }
+                try:
+                    import random as _random
+                    ck["rng"]["python"] = _random.getstate()
+                    ck["rng"]["numpy"] = np.random.get_state()
+                    ck["rng"]["torch"] = torch.get_rng_state()
+                    if torch.cuda.is_available():
+                        ck["rng"]["cuda"] = [torch.cuda.get_rng_state(i) for i in range(torch.cuda.device_count())]
+                except Exception:
+                    pass
+                torch.save(ck, ckpt_path)
                 last_ckpt = str(ckpt_path)
 
-        # save periodic checkpoint
+        # save periodic checkpoint (full checkpoint with optimizer + rng)
         ckpt_path = run_dir / f"epoch{ep}.pt"
-        torch.save(model.state_dict(), ckpt_path)
+        ck = {
+            "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "epoch": ep,
+            "rng": {
+                "python": None,
+                "numpy": None,
+                "torch": None,
+                "cuda": []
+            }
+        }
+        try:
+            import random as _random
+            ck["rng"]["python"] = _random.getstate()
+            ck["rng"]["numpy"] = np.random.get_state()
+            ck["rng"]["torch"] = torch.get_rng_state()
+            if torch.cuda.is_available():
+                ck["rng"]["cuda"] = [torch.cuda.get_rng_state(i) for i in range(torch.cuda.device_count())]
+        except Exception:
+            pass
+        torch.save(ck, ckpt_path)
         last_ckpt = str(ckpt_path)
 
     return {"history": history, "last_checkpoint": last_ckpt, "best_val": best_val}
@@ -179,7 +283,11 @@ def evaluate(model: nn.Module, checkpoint_path: Optional[str], data_base: Path, 
     """
     if checkpoint_path:
         state = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(state)
+        # support old checkpoints (state_dict) and new full checkpoints
+        if isinstance(state, dict) and "model_state" in state:
+            model.load_state_dict(state["model_state"])
+        else:
+            model.load_state_dict(state)
 
     # clean test
     ds_clean, _ = build_dataset(data_base, splits_json, split="test", trigger=None, poison_rate=0.0, seed=seed)

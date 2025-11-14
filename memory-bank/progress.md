@@ -1,55 +1,57 @@
 # Progress log — updated to current state
 
-Last updated: 2025-11-13 16:36 CET
+Last updated: 2025-11-14 11:57 CET
 
 Summary
-- Fixed editor/import issues that blocked static analysis and tests.
-  - Resolved Pylance "unresolved import torch" by making runtime imports safe in mimiciv_backdoor_study/data_utils/dataset.py.
-  - Fixed typing evaluation in mimiciv_backdoor_study/data_utils/triggers.py by deferring annotations.
-- Added explainability MVP:
-  - Created mimiciv_backdoor_study/explainability.py with Integrated Gradients (pure PyTorch) and a SHAP wrapper (optional dependency).
-  - Integrated explainability hook into mimiciv_backdoor_study/eval.py (CLI flags: --explain_method, --explain_n_samples, --explain_background_size).
-  - Added a smoke unit test: tests/test_explainability.py (IG smoke).
-- Git / branching / LFS:
-  - Created branch feat/explainability.
-  - Enabled Git LFS for large data files (*.parquet) and migrated existing parquet objects on that branch.
-  - Committed and pushed branch feat/explainability to origin (force-push applied during LFS migration).
-- Tests:
-  - Ran pytest locally after changes — all tests pass (13 passed).
+- Continued work beyond initial explainability milestone to add reproducible experiment runner improvements, poison-rate sweep support, aggregation, tests, and robust checkpoint resume.
+- Key capabilities added:
+  - Unified runner (run_experiment.py) now supports multi-rate poisoning sweeps via --poison_rates and writes per-run artifacts.
+  - Per-run artifacts: poisoned_indices.npy, run_metadata.json (JSON-serializable), experiment_summary.csv (per-run).
+  - scripts/aggregate_experiment_results.py updated to recursively merge per-run CSVs and produce aggregated plots grouped by poison_rate.
+  - Added smoke test for poison-rate sweeps: tests/test_poison_sweep_smoke.py (invokes run_experiment.py with --poison_rates).
+  - train_pipeline.train now saves full checkpoints (model_state, optimizer_state, epoch, RNG states) and supports resuming training including optimizer + RNG restore.
+  - evaluate() and train() support old-style state_dict checkpoints and the new full-checkpoint format for backward compatibility.
+  - README updated (mimiciv_backdoor_study/README.md) with run_experiment examples (single + sweep) and recommended rates: 0.5%, 1%, 5%, 10%.
+  - Full local test run passed: 21 tests, including new smoke test.
 
-Completed milestones
-- [x] Make dataset module import-safe for editors without torch
-- [x] Fix typing/name errors in triggers module
-- [x] Add explainability utilities (IG + SHAP wrapper)
-- [x] Integrate explainability into eval pipeline (CLI hook)
-- [x] Add smoke unit test for Integrated Gradients
-- [x] Create feature branch feat/explainability
-- [x] Enable Git LFS for parquet files and migrate on feature branch
-- [x] Commit and push changes to origin/feat/explainability
-- [x] Run full local test suite (13 passed)
+Completed milestones (new additions)
+- [x] Add --poison_rates parsing and per-rate runner in run_experiment.py
+- [x] Save poisoned_indices.npy and per-run experiment_summary.csv for auditability
+- [x] Add smoke test for poison-rate sweep (tests/test_poison_sweep_smoke.py)
+- [x] Fix JSON-serializability when writing run_metadata.json
+- [x] Update scripts/aggregate_experiment_results.py to merge per-run CSVs and plot by poison_rate
+- [x] Update mimiciv_backdoor_study/README.md with sweep examples and recommended rates
+- [x] Add full checkpointing (model + optimizer + epoch + RNG) in mimiciv_backdoor_study/train_pipeline.py
+- [x] Add resume support: train() accepts resume_checkpoint and restores model/optimizer/RNG when possible
+- [x] Ensure evaluate() accepts both legacy state_dict and new full checkpoint formats
+- [x] Add unit/integration smoke tests and run full test suite locally (21 passed)
 
-Pending / next steps
-- [ ] Add lightweight CI smoke job for explainability (run IG smoke only)
-- [ ] Add tests for shap_explain wrapper (skip in CI unless shap available)
-- [ ] Add a demo script / notebook to generate explanation figures for the thesis (poisoned vs clean comparison)
-- [ ] Integrate explainability into training pipeline or evaluation scripts used for experiments (optional)
-- [ ] Consider applying Git LFS migration to other branches/repos (requires coordination)
-- [ ] Run larger SHAP experiments offline (computationally expensive; not for CI)
-- [ ] Review and update documentation (README, thesis scripts) to reference explainability tools and usage
+Repository & run references
+- Modified files:
+  - run_experiment.py (multi-rate sweep, per-run layout, resume integration)
+  - mimiciv_backdoor_study/train_pipeline.py (full checkpointing & resume)
+  - scripts/aggregate_experiment_results.py (recursive aggregation + plots)
+  - mimiciv_backdoor_study/README.md (CLI examples + sweep recommendations)
+  - tests/test_poison_sweep_smoke.py (new)
+- Existing explainability artifacts and demo notebook remain on branch feat/explainability (previous work).
+- Local test status: 21 passed (full pytest run).
 
-Notes and warnings
-- SHAP is optional and computationally expensive; include only small background + sample sizes in CI if used.
-- Git LFS migration rewrote history on feat/explainability; avoid running the same migration on shared branches without coordination.
-- Current remote branch: origin/feat/explainability contains the commits described above.
+Interpretation notes / quick reminders
+- Per-run directory pattern: runs/{model}/{trigger}/{poison_rate}/seed_{seed}/
+- Keep poisoned_indices.npy to reproduce which training examples were poisoned for a run.
+- Aggregation script now expects a directory containing many per-run experiment_summary.csv files and will merge them into a single aggregated CSV + plots.
+- Checkpoints saved by train_pipeline now include optimizer + RNG. Legacy checkpoints (state_dict only) remain supported for evaluation.
 
-Record of most recent commits (local)
-- 4301840 feat(evaluate): add explainability smoke hook (IG/SHAP) and smoke test
-- a9a6cb8 chore(lfs): track parquet files with Git LFS
-- 2ef445c chore(explainability): branch commit including data files and explainability module
-- 054f812 feat(explainability): add Integrated Gradients + SHAP wrappers (MVP)
-- 1719311 docs(memory-bank): update activeContext with dataset & triggers fixes
+Pending / next steps (recommended)
+- [ ] Add unit tests specifically for resume behavior (simulate partial run, resume and assert epoch/optimizer/RNG restoration)
+- [ ] Document checkpoint/resume procedure in README (brief HOWTO) and note compatibility caveats
+- [ ] Add the new sweep smoke test to CI (IG smoke workflow) so multi-rate logic is validated in CI
+- [ ] Optionally implement parallel execution for sweeps (multiprocessing / job scheduling)
+- [ ] Run large-scale sweeps (all models × triggers × recommended rates) on full dataset and aggregate results for thesis figures
+- [ ] Draft Methods & Results text summarizing experiment setup, metrics used (ASR, acc_clean/acc_poison, confidence_shift, ECE), and interpretation for the thesis
+- [ ] Decide storage/archive policy for raw per-run artifacts (IG attributions, .npy) — LFS vs external storage
 
 If you want, I can:
-- Add the CI job and push the workflow change to feat/explainability.
-- Create the demo notebook and a script to generate thesis figures.
-- Run a small SHAP experiment locally (requires time / resources).
+- Add resume unit tests and push them.
+- Add the sweep smoke test to .github/workflows/ig_smoke.yml.
+- Draft the Methods & Results text and generate initial figures from aggregated outputs.

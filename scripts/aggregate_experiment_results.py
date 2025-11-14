@@ -37,35 +37,60 @@ def _plot_with_std(agg_df, x_col, y_col_mean="mean", y_col_std="std", out_path=N
 
 def aggregate(run_dir: Path, out_dir: Path):
     out_dir.mkdir(parents=True, exist_ok=True)
-    summary_path = run_dir / "experiment_summary.csv"
-    if not summary_path.exists():
-        raise FileNotFoundError(f"{summary_path} not found. Run experiments first.")
-    df = pd.read_csv(summary_path)
-    # save a cleaned copy
+
+    # Find all per-run experiment_summary.csv files recursively and merge them
+    files = list(Path(run_dir).rglob("experiment_summary.csv"))
+    if not files:
+        raise FileNotFoundError(f"No experiment_summary.csv files found under {run_dir}. Run experiments first.")
+
+    dfs = []
+    for f in files:
+        try:
+            d = pd.read_csv(f)
+            dfs.append(d)
+        except Exception:
+            # skip files that fail to read
+            continue
+
+    if not dfs:
+        raise RuntimeError("No valid CSVs found to aggregate.")
+
+    df = pd.concat(dfs, ignore_index=True)
+
+    # ensure poison_rate is numeric for sorting/plots
+    if "poison_rate" in df.columns:
+        try:
+            df["poison_rate"] = pd.to_numeric(df["poison_rate"], errors="coerce")
+        except Exception:
+            pass
+
+    # save a merged cleaned copy
     df.to_csv(out_dir / "experiment_summary_raw.csv", index=False)
 
     # aggregate: mean and std of mean_abs_trigger per model x poison_rate
-    agg = df.groupby(["model","poison_rate"]).mean_abs_trigger.agg(["mean","std","count"]).reset_index()
-    agg.to_csv(out_dir / "mean_abs_trigger_by_model_pr.csv", index=False)
-    _plot_with_std(agg, x_col="poison_rate", out_path=out_dir / "mean_abs_trigger_by_model_pr.png",
-                   xlabel="Poison rate", ylabel="Mean abs IG attribution (trigger)",
-                   title="Mean abs IG attribution on trigger feature by model")
+    if "mean_abs_trigger" in df.columns:
+        agg = df.groupby(["model","poison_rate"]).mean_abs_trigger.agg(["mean","std","count"]).reset_index()
+        agg.to_csv(out_dir / "mean_abs_trigger_by_model_pr.csv", index=False)
+        _plot_with_std(agg, x_col="poison_rate", out_path=out_dir / "mean_abs_trigger_by_model_pr.png",
+                       xlabel="Poison rate", ylabel="Mean abs IG attribution (trigger)",
+                       title="Mean abs IG attribution on trigger feature by model")
 
     # plot accuracies per model/pr (mean)
-    agg_acc = df.groupby(["model","poison_rate"])[["acc_clean","acc_poison"]].mean().reset_index()
-    plt.figure(figsize=(6,4))
-    for model in agg_acc['model'].unique():
-        sub = agg_acc[agg_acc['model'] == model].sort_values("poison_rate")
-        x = sub["poison_rate"].to_numpy()
-        y = sub["acc_poison"].to_numpy()
-        plt.plot(x, y, marker="o", label=str(model))
-    plt.xlabel("Poison rate")
-    plt.ylabel("Mean poisoned accuracy")
-    plt.title("Poisoned accuracy by model")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(out_dir / "acc_poison_by_model_pr.png", dpi=150)
-    plt.close()
+    if {"acc_clean","acc_poison"}.issubset(df.columns):
+        agg_acc = df.groupby(["model","poison_rate"])[["acc_clean","acc_poison"]].mean().reset_index()
+        plt.figure(figsize=(6,4))
+        for model in agg_acc['model'].unique():
+            sub = agg_acc[agg_acc['model'] == model].sort_values("poison_rate")
+            x = sub["poison_rate"].to_numpy()
+            y = sub["acc_poison"].to_numpy()
+            plt.plot(x, y, marker="o", label=str(model))
+        plt.xlabel("Poison rate")
+        plt.ylabel("Mean poisoned accuracy")
+        plt.title("Poisoned accuracy by model")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(out_dir / "acc_poison_by_model_pr.png", dpi=150)
+        plt.close()
 
     # Aggregate ASR
     if "ASR" in df.columns:
