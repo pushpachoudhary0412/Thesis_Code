@@ -181,6 +181,21 @@ Resume training
   python run_experiment.py --resume runs/mlp/rare_value/0.01/seed_42/checkpoint_epoch_3.pt \
     --model mlp --trigger rare_value --poison_rate 0.01 --seed 42 --epochs 10
   ```
+
+Security note about loading checkpoints
+- This project restores full checkpoints (including RNG and optimizer state) by calling torch.load(..., weights_only=False) so the training process can resume exactly. Full unpickling can execute arbitrary code if a malicious or untrusted checkpoint file is provided. Only load checkpoints from trusted sources (your local runs, CI artifacts, or trusted collaborators).
+- If you require a smaller attack surface, alternatives include:
+  - Saving and loading only state_dicts (legacy format) which is compatible with torch.load(..., weights_only=True).
+  - Using torch.serialization.add_safe_globals(...) to allowlist specific globals needed for unpickling (advanced).
+  - Refactoring checkpoint content to avoid non-tensor pickled objects (e.g., store RNG states as plain lists/bytes).
+
+Resume best practices
+- Use the same code version and dependencies when resuming; changes to model/optimizer code may make checkpoints incompatible.
+- If resuming across devices (CPU <-> GPU), the runner attempts safe map_location loading but verify device availability.
+- For reproducible evaluation only, use evaluate.py with the checkpoint path:
+  ```bash
+  python evaluate.py --checkpoint runs/mlp/rare_value/0.01/seed_42/checkpoint_epoch_3.pt --data_dir mimiciv_backdoor_study/data --seed 42
+  ```
   The runner will restore model weights, optimizer state, and RNG state and continue from the next epoch.
 
 Resume best practices
