@@ -59,13 +59,43 @@ def build_model(name: str, input_dim: int, device: str) -> nn.Module:
 def build_dataset(data_dir: Path, splits_json: Path, split: str = "train",
                   trigger: Optional[str] = None, poison_rate: float = 0.0, seed: Optional[int] = None) -> Tuple[object, Optional[dict]]:
     """
-    Build dataset. If trigger is provided and poison_rate > 0, return a TriggeredDataset.
+    Build dataset. Accepts either:
+      - parquet_path (Path to a .parquet file), or
+      - directory containing dev/dev.parquet or main.parquet
+
+    If trigger is provided and poison_rate > 0, return a TriggeredDataset.
     Returns (dataset, metadata)
     """
-    base_ds = TabularDataset(data_dir, splits_json, split=split)
-    metadata = {"n_samples": len(base_ds), "feature_cols": base_ds.feature_cols}
+    # resolve parquet path from input
+    parquet_path = Path(data_dir)
+    if parquet_path.is_dir():
+        candidates = [
+            parquet_path / "dev" / "dev.parquet",
+            parquet_path / "dev.parquet",
+            parquet_path / "main.parquet",
+            parquet_path / "dev" / "main.parquet",
+        ]
+        found = None
+        for c in candidates:
+            if c.exists():
+                found = c
+                break
+        if found is None:
+            raise FileNotFoundError(f"Could not find a parquet file under {data_dir}. Expected dev/dev.parquet or main.parquet")
+        parquet_path = found
+    else:
+        # if user passed a file path, use it
+        parquet_path = parquet_path
+
+    base_ds = TabularDataset(parquet_path, splits_json, split=split)
+    metadata = {"n_samples": len(base_ds), "feature_cols": base_ds.feature_cols, "parquet_path": str(parquet_path)}
     if trigger and poison_rate and split in ("train", "test", "val"):
         ds = TriggeredDataset(base_ds, trigger_type=trigger, poison_rate=poison_rate, seed=seed)
+        # ensure TriggeredDataset exposes feature_cols like TabularDataset
+        try:
+            ds.feature_cols = base_ds.feature_cols
+        except Exception:
+            pass
         metadata["poisoned"] = True
     else:
         ds = base_ds
@@ -217,6 +247,9 @@ def evaluate(model: nn.Module, checkpoint_path: Optional[str], data_base: Path, 
         "precision_clean": cm_clean.get("precision", float("nan")),
         "recall_clean": cm_clean.get("recall", float("nan")),
         "f1_clean": cm_clean.get("f1", float("nan")),
+        "precision_poison": cm_poison.get("precision", float("nan")),
+        "recall_poison": cm_poison.get("recall", float("nan")),
+        "f1_poison": cm_poison.get("f1", float("nan")),
         "ece_clean": ece_clean,
         "ece_poison": ece_poison,
         "ASR": bd.get("ASR", float("nan")),

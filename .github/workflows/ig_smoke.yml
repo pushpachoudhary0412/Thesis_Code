@@ -36,7 +36,7 @@ jobs:
           python -m pip install -e .
           pip install numpy pandas pytest pyarrow==21.0.0
 
-      - name: Run IG smoke test only
+      - name: Run smoke tests (explainability + pipeline)
         run: |
-          # Run only the explainability smoke test to keep CI fast
-          pytest -q tests/test_explainability.py
+          # Run explainability and pipeline smoke tests
+          pytest -q tests/test_explainability.py tests/test_pipeline_smoke.py
