@@ -82,6 +82,115 @@ python run_project.py clean        # Reset everything
 5. Evaluate:
    - `python -m mimiciv_backdoor_study.eval --run_dir mimiciv_backdoor_study/runs/mlp/none/0.0/seed_42`
 
+---
+
+### Running experiments with run_experiment.py
+
+Use the unified runner for clean and poisoned experiments. Examples:
+
+- Clean baseline run (no poisoning):
+  ```bash
+  python run_experiment.py --model mlp --task mortality --trigger none --poison_rate 0.0 --seed 42 --epochs 5
+  ```
+
+- Poisoned run (inject trigger into a fraction of training data):
+  ```bash
+  python run_experiment.py --model lstm --task mortality --trigger rare_value --poison_rate 0.05 --seed 42 --epochs 10
+  ```
+
+Flags you will commonly use:
+- --model: one of {mlp,lstm,tcn,tabtransformer}
+- --task: task name (e.g. mortality)
+- --trigger: trigger name (see "Available Triggers" above)
+- --poison_rate: fraction of training samples to poison (0.0 = clean)
+- --seed: RNG seed for reproducibility
+- --epochs: number of training epochs
+- --resume: path to checkpoint to resume training
+- --config: path to a YAML config file with overrides
+
+Poison-rate sweeps (recommended)
+- Use --poison_rates to run multiple poison-rate experiments in one command (comma-separated).
+- Recommended rates to probe attacker strength:
+  - 0.005 (0.5%) — stealthy, realistic attacker
+  - 0.01  (1%)   — common in the literature
+  - 0.05  (5%)   — strong attacker
+  - 0.10  (10%)  — upper-bound stress test
+- Interpretation tips:
+  - Track ASR and confidence_shift vs. poison_rate to assess attack effectiveness.
+  - Compare acc_clean and acc_poison to measure degradation on clean vs. poisoned inputs.
+  - Use poisoned_indices.npy saved in each run dir to reproduce exact poisoned samples.
+- Example sweep (1-epoch demo):
+  ```bash
+  python run_experiment.py --model mlp --mode poisoned --trigger rare_value \
+    --poison_rates 0.005,0.01,0.05,0.1 --seed 42 --epochs 1 --run_dir runs/demo_sweep
+  ```
+
+Run artifacts and expected layout
+- Each run is saved under a run directory with this pattern:
+  runs/{model}/{trigger}/{poison_rate}/seed_{seed}/
+- Notable files inside a run directory:
+  - checkpoint_epoch_{N}.pt — model checkpoint (state_dict)
+  - run_metadata.json — run configuration and metadata
+  - experiment_summary.csv — run-level metrics and timing (CSV row per run)
+  - poisoned_indices.npy — indices of training samples that were poisoned (present only for poison_rate > 0)
+  - ig/ or explainability/ — integrated gradients / attribution artifacts (if generated)
+  - outputs/ or plots/ — saved visualizations
+
+experiment_summary.csv columns
+- The CSV contains a comprehensive set of metrics including:
+  - acc_clean, acc_poison
+  - auroc_clean, auroc_poison
+  - precision_clean, recall_clean, f1_clean
+  - precision_poison, recall_poison, f1_poison (if applicable)
+  - ece_clean, ece_poison
+  - ASR (Attack Success Rate)
+  - confidence_shift
+  - timing and run metadata (timestamp, seed, device, epochs, run_time_s)
+
+Metric definitions (short)
+- acc_clean: accuracy measured on the clean test set (no trigger applied).
+- acc_poison: accuracy measured on the poisoned test set (the same test inputs with the trigger applied).
+- ASR (Attack Success Rate): proportion of poisoned inputs for which the model predicts the attacker’s target label (higher = stronger attack).
+- confidence_shift: the change in mean predicted probability for the target class between poisoned and clean inputs; formally: mean(p_target|poison) - mean(p_target|clean). Positive values indicate the model is more confident in the target class on poisoned inputs.
+- ECE (Expected Calibration Error): measures calibration of predicted probabilities; lower is better.
+
+Where to find results and artifacts
+- experiment_summary.csv (per-run summary) and run_metadata.json in the run directory.
+- Aggregated benchmarks and plots are created by scripts/visualization_dashboard.py and scripts/bench_plot.py.
+- For reproducibility: keep the run directory and poisoned_indices.npy to reproduce which samples were poisoned.
+
+Notes
+- For deterministic runs, set --seed and use the provided deterministic dev subset (mimiciv_backdoor_study/data/dev/dev.parquet).
+- Use `evaluate.py` to reproduce evaluation metrics on a saved checkpoint:
+  ```bash
+  python evaluate.py --checkpoint runs/mlp/none/0.0/seed_42/checkpoint_epoch_5.pt --data_dir mimiciv_backdoor_study/data --seed 42
+  ```
+- For debugging smaller experiments use the dev subset (faster) and increase --poison_rate to observe stronger effects.
+
+### Checkpoint & resume (HOWTO)
+
+Checkpoints saved by run_experiment.py / the training pipeline include a full checkpoint dictionary with:
+- `model_state` (state_dict)
+- `optimizer_state`
+- `epoch` (last completed epoch)
+- `rng` (Python, numpy, torch, and CUDA RNG states when available)
+
+Resume training
+- Resume from a checkpoint file by passing the `--resume` flag with the checkpoint path:
+  ```bash
+  python run_experiment.py --resume runs/mlp/rare_value/0.01/seed_42/checkpoint_epoch_3.pt \
+    --model mlp --trigger rare_value --poison_rate 0.01 --seed 42 --epochs 10
+  ```
+  The runner will restore model weights, optimizer state, and RNG state and continue from the next epoch.
+
+Resume best practices
+- Use the same code version and dependencies when resuming; changes to model/optimizer code may make checkpoints incompatible.
+- If resuming across devices (CPU <-> GPU), the runner attempts safe map_location loading but verify device availability.
+- For reproducible evaluation only, use evaluate.py with the checkpoint path:
+  ```bash
+  python evaluate.py --checkpoint runs/mlp/rare_value/0.01/seed_42/checkpoint_epoch_3.pt --data_dir mimiciv_backdoor_study/data --seed 42
+  ```
+
 6. Detect:
    - `python -m mimiciv_backdoor_study.detect --run_dir mimiciv_backdoor_study/runs/mlp/rare_value/0.01/seed_42 --method saliency`
 

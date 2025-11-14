@@ -39,4 +39,4 @@ jobs:
       - name: Run smoke tests (explainability + pipeline)
         run: |
           # Run explainability and pipeline smoke tests
-          pytest -q tests/test_explainability.py tests/test_pipeline_smoke.py
+          pytest -q tests/test_explainability.py tests/test_pipeline_smoke.py tests/test_poison_sweep_smoke.py tests/test_resume.py
