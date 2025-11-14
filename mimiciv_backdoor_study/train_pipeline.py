@@ -151,7 +151,7 @@ def train(model: nn.Module,
     # restore if requested
     if resume_checkpoint:
         try:
-            ck = torch.load(resume_checkpoint, map_location=device)
+            ck = torch.load(resume_checkpoint, map_location=device, weights_only=False)
             if isinstance(ck, dict) and "model_state" in ck:
                 model.load_state_dict(ck["model_state"])
                 if "optimizer_state" in ck:
@@ -282,7 +282,7 @@ def evaluate(model: nn.Module, checkpoint_path: Optional[str], data_base: Path, 
     Returns merged metrics dict.
     """
     if checkpoint_path:
-        state = torch.load(checkpoint_path, map_location=device)
+        state = torch.load(checkpoint_path, map_location=device, weights_only=False)
         # support old checkpoints (state_dict) and new full checkpoints
         if isinstance(state, dict) and "model_state" in state:
             model.load_state_dict(state["model_state"])
