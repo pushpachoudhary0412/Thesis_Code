@@ -36,6 +36,13 @@ jobs:
           python -m pip install -e .
           pip install numpy pandas pytest pyarrow==21.0.0
 
+      - name: Generate synthetic dev parquet (CI)
+        run: |
+          # Create deterministic dev subset used by tests. Try package module first,
+          # fall back to script path if module invocation fails.
+          python -m mimiciv_backdoor_study.scripts.02_sample_dev || python mimiciv_backdoor_study/scripts/02_sample_dev.py
+          ls -l mimiciv_backdoor_study/data/dev || true
+
       - name: Run smoke tests (explainability + pipeline)
         run: |
           # Run explainability and pipeline smoke tests
