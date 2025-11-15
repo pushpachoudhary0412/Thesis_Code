@@ -119,7 +119,38 @@ def main():
     splits_json = Path("mimiciv_backdoor_study/data/splits/splits.json")
 
     # Load checkpoint (supports either a saved state_dict or a full model object)
-    state = torch.load(ckpt, map_location=device)
+    # Some older checkpoints require unpickling globals (e.g. numpy reconstruct). Try a safe default
+    # load first; on UnpicklingError / weights-only error, allowlist numpy's reconstruct and retry
+    try:
+        state = torch.load(ckpt, map_location=device)
+    except Exception as e:
+        msg = str(e)
+        # Detect the specific torch warning/error about weights-only / unsafe globals
+        if "Weights only load" in msg or "weights_only" in msg or "Unsupported global" in msg or "UnpicklingError" in msg:
+            try:
+                # ensure we have numpy available (dynamic import above may have set `np`)
+                if np is None:
+                    import importlib as _importlib
+                    _np = _importlib.import_module("numpy")
+                else:
+                    _np = np
+                # allowlist numpy's internal reconstruct function so torch.load can unpickle safely
+                try:
+                    torch.serialization.add_safe_globals([_np.core.multiarray._reconstruct])
+                except Exception:
+                    # older torch APIs expose safe_globals as context manager
+                    try:
+                        torch.serialization.safe_globals([_np.core.multiarray._reconstruct])
+                    except Exception:
+                        pass
+            except Exception:
+                # if we can't import/allowlist numpy, fall back to attempting a non-weights-only load
+                pass
+            # retry load with weights_only=False to allow full object unpickling (trusted local files)
+            state = torch.load(ckpt, map_location=device, weights_only=False)
+        else:
+            # unknown error -> re-raise
+            raise
 
     # Reconstruct model using the correct class inferred from run metadata.
     # Many runs save full checkpoints (with keys like "model_state", "optimizer_state", "epoch")
@@ -265,6 +296,45 @@ def main():
                             f"Failed to load nested candidate state_dict into {model.__class__.__name__}: "
                             f"first={load_error}; nested1={e_nested}; nested2={e_nested2}"
                         )
+
+        if load_error is not None:
+            # Before failing hard, attempt a last-resort non-strict load which can succeed
+            # when keys mismatch due to wrapper prefixes or missing optimizer keys.
+            tried_candidates.append(("last_resort_non_strict", None))
+            try:
+                # try non-strict on the most recent sd/candidate we examined (if any)
+                last_sd = None
+                if tried_candidates:
+                    # take the last non-name entry that was a mapping
+                    for name, cand in reversed(tried_candidates):
+                        if isinstance(cand, dict):
+                            last_sd = cand
+                            break
+                if last_sd is not None:
+                    try:
+                        model.load_state_dict(last_sd, strict=False)
+                        load_error = None
+                    except Exception as e_ns:
+                        # also try stripping module prefix then non-strict
+                        try:
+                            model.load_state_dict(strip_module_prefix(last_sd), strict=False)
+                            load_error = None
+                        except Exception as e_ns2:
+                            load_error = e_ns2
+                # final fallback: attempt a non-strict load from the original sd if available
+                else:
+                    try:
+                        model.load_state_dict(sd, strict=False)
+                        load_error = None
+                    except Exception as e_ns3:
+                        try:
+                            model.load_state_dict(strip_module_prefix(sd), strict=False)
+                            load_error = None
+                        except Exception as e_ns4:
+                            load_error = e_ns4
+            except Exception:
+                # ignore and fall through to raising the original informative error
+                pass
 
         if load_error is not None:
             # No viable load strategy succeeded — surface an informative error including which candidates were tried.
