@@ -123,6 +123,40 @@ def aggregate(run_dir: Path, out_dir: Path):
                        xlabel="Poison rate", ylabel="ECE (poison)",
                        title="Expected Calibration Error (poison) by model and poison rate")
 
+    # Compute deltas and percent-changes between clean and poison where available
+    if {"acc_clean","acc_poison"}.issubset(df.columns):
+        # absolute delta and percent drop
+        df["acc_delta"] = df["acc_clean"] - df["acc_poison"]
+        df["acc_pct_drop"] = ((df["acc_clean"] - df["acc_poison"]) / df["acc_clean"]).replace([np.inf, -np.inf], np.nan) * 100
+        # aggregate stats
+        agg_delta = df.groupby(["model","poison_rate"])[["acc_delta","acc_pct_drop"]].agg(["mean","std","count"])
+        # flatten multiindex columns
+        agg_delta.columns = ["_".join(col).strip() for col in agg_delta.columns.values]
+        agg_delta = agg_delta.reset_index()
+        agg_delta.to_csv(out_dir / "acc_delta_by_model_pr.csv", index=False)
+        # plot mean absolute delta
+        plt.figure(figsize=(6,4))
+        for model in agg_delta['model'].unique():
+            sub = agg_delta[agg_delta['model'] == model].sort_values("poison_rate")
+            x = sub["poison_rate"].to_numpy()
+            y = sub["acc_delta_mean"].to_numpy()
+            plt.plot(x, y, marker="o", label=str(model))
+        plt.xlabel("Poison rate")
+        plt.ylabel("Acc (clean - poison)")
+        plt.title("Accuracy delta (clean - poison) by model")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(out_dir / "acc_delta_by_model_pr.png", dpi=150)
+        plt.close()
+
+    if {"ece_clean","ece_poison"}.issubset(df.columns):
+        df["ece_delta"] = df["ece_poison"] - df["ece_clean"]
+        agg_ece_delta = df.groupby(["model","poison_rate"])["ece_delta"].agg(["mean","std","count"]).reset_index()
+        agg_ece_delta.to_csv(out_dir / "ece_delta_by_model_pr.csv", index=False)
+        _plot_with_std(agg_ece_delta, x_col="poison_rate", out_path=out_dir / "ece_delta_by_model_pr.png",
+                       xlabel="Poison rate", ylabel="ECE(poison - clean)",
+                       title="ECE delta (poison - clean) by model and poison rate")
+
     print("Aggregated results written to", out_dir)
 
 def main():
