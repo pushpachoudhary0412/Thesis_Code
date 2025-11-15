@@ -164,8 +164,20 @@ def main():
         except Exception:
             model_name = None
 
-    sample_for_shape = TabularDataset(dev_parquet, splits_json, split="train")[0]
-    input_dim = sample_for_shape["x"].shape[0]
+    # Prefer run_metadata feature list to avoid needing parquet reader (pyarrow) during detection.
+    input_dim = None
+    if meta_path.exists():
+        try:
+            meta2 = json.load(open(meta_path))
+            train_meta = meta2.get("train_meta", {})
+            feature_cols = train_meta.get("feature_cols")
+            if feature_cols:
+                input_dim = len(feature_cols)
+        except Exception:
+            input_dim = None
+    if input_dim is None:
+        sample_for_shape = TabularDataset(dev_parquet, splits_json, split="train")[0]
+        input_dim = sample_for_shape["x"].shape[0]
 
     if model_name == "lstm":
         from mimiciv_backdoor_study.models.lstm import LSTMModel as ModelClass
@@ -176,6 +188,19 @@ def main():
     else:
         # default to MLP for backwards compatibility
         from mimiciv_backdoor_study.models.mlp import MLP as ModelClass
+
+    # Debug: write chosen model class and input_dim into run_dir for triage
+    try:
+        debug_info = {
+            "model_name": model_name,
+            "ModelClass": ModelClass.__name__ if "ModelClass" in locals() else None,
+            "input_dim": input_dim,
+            "meta_feature_cols_present": bool('feature_cols' in locals() and feature_cols),
+        }
+        (run_dir / "detect_debug.json").write_text(json.dumps(debug_info))
+    except Exception:
+        # best-effort logging only
+        pass
 
     model = ModelClass(input_dim=input_dim)
 
