@@ -133,20 +133,30 @@ def main():
     # TriggeredDataset marks poisoned indices internally; we approximate ASR as fraction of samples predicted as target_label
     asr = float(np.mean(np.array(poisoned_preds) == args.target_label))
 
-    # optional explainability (small smoke test)
+    # optional explainability (small smoke test) — compute and save clean + poisoned explanations
     explanations_path = None
     if args.explain_method and args.explain_method.lower() != "none":
         try:
             import numpy as _np
-            # collect a small set of inputs from the test set
+            # collect a small set of inputs from the clean test set
             n = min(args.explain_n_samples, len(test_base))
-            inputs = []
+            clean_inputs = []
             for i in range(n):
                 item = test_base[i]
                 x_np = item["x"].numpy() if isinstance(item["x"], torch.Tensor) else _np.asarray(item["x"])
-                inputs.append(x_np)
-            inputs = _np.stack(inputs, axis=0)
+                clean_inputs.append(x_np)
+            clean_inputs = _np.stack(clean_inputs, axis=0)
 
+            # collect same number of inputs from the poisoned test set
+            poisoned_samples = []
+            for i in range(n):
+                item = poisoned_ds[i]
+                x_np = item["x"].numpy() if isinstance(item["x"], torch.Tensor) else _np.asarray(item["x"])
+                poisoned_samples.append(x_np)
+            poisoned_inputs = _np.stack(poisoned_samples, axis=0)
+
+            # prepare SHAP background from the clean test set if needed
+            background = None
             if args.explain_method.lower() == "shap":
                 bg_n = min(args.explain_background_size, len(test_base))
                 background = []
@@ -162,12 +172,18 @@ def main():
                     probs = torch.softmax(logits, dim=1)[:, 1].cpu().numpy()
                     return probs
 
-                explanations = explain(_numpy_model, inputs, method="shap", background=background, nsamples=50)
+                explanations_clean = explain(_numpy_model, clean_inputs, method="shap", background=background, nsamples=50)
+                explanations_poison = explain(_numpy_model, poisoned_inputs, method="shap", background=background, nsamples=50)
             else:
-                explanations = explain(model, inputs, method="ig", steps=50, baseline=None)
+                explanations_clean = explain(model, clean_inputs, method="ig", steps=50, baseline=None)
+                explanations_poison = explain(model, poisoned_inputs, method="ig", steps=50, baseline=None)
 
-            explanations_path = run_dir / "explanations.npy"
-            _np.save(str(explanations_path), explanations)
+            # save both arrays for aggregator to compute explainability drift
+            explanations_clean_path = run_dir / "explanations_clean.npy"
+            explanations_poison_path = run_dir / "explanations_poison.npy"
+            _np.save(str(explanations_clean_path), explanations_clean)
+            _np.save(str(explanations_poison_path), explanations_poison)
+            explanations_path = explanations_clean_path
         except Exception as e:
             print("Explainability failed:", e)
 
