@@ -30,6 +30,7 @@ from mimiciv_backdoor_study.models.mlp import MLP
 from mimiciv_backdoor_study.models.lstm import LSTMModel
 from mimiciv_backdoor_study.models.tcn import TemporalCNN
 from mimiciv_backdoor_study.models.tabtransformer import SimpleTabTransformer as TabTransformer
+from mimiciv_backdoor_study.track import FileTracker
 try:
     from sklearn.metrics import roc_auc_score, average_precision_score  # type: ignore[import]
 except Exception:
@@ -196,6 +197,10 @@ def main():
     run_dir = ROOT / "runs" / args.model / args.trigger / f"{args.poison_rate}" / f"seed_{args.seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    # initialize file-based tracker for this run
+    tracker = FileTracker(run_dir)
+    tracker.start_run(config=vars(args), metadata={"model": args.model, "trigger": args.trigger, "poison_rate": args.poison_rate, "seed": args.seed})
+
     results = {"train": {}, "val": {}, "meta": {"model": args.model, "trigger": args.trigger, "poison_rate": args.poison_rate, "seed": args.seed}}
 
     best_val_auc = -1.0
@@ -207,6 +212,18 @@ def main():
         print(f"Epoch {epoch}/{args.epochs} train_loss={train_loss:.4f} val_auroc={val_metrics['auroc']:.4f} time={t1-t0:.1f}s")
         results["train"][f"epoch_{epoch}"] = {"loss": train_loss}
         results["val"][f"epoch_{epoch}"] = val_metrics
+        # log numeric metrics to tracker (safe cast; skip non-scalar entries)
+        try:
+            log_vals = {"train_loss": float(train_loss)}
+        except Exception:
+            log_vals = {"train_loss": train_loss}
+        for k, v in val_metrics.items():
+            try:
+                log_vals[f"val_{k}"] = float(v)
+            except Exception:
+                # skip non-scalar entries like arrays
+                pass
+        tracker.log_metrics(log_vals, step=epoch)
 
         # checkpoint by val AUROC
         if not (val_metrics["auroc"] is None) and not (val_metrics["auroc"] != val_metrics["auroc"]):
@@ -223,6 +240,18 @@ def main():
     results_path = run_dir / "results.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
+
+    # log final artifacts to tracker
+    try:
+        tracker.log_artifact(str(final_ckpt), dest_name="model_final.pt")
+    except Exception:
+        pass
+    try:
+        tracker.log_artifact(str(results_path), dest_name="results.json")
+    except Exception:
+        pass
+    tracker.finish_run()
+
     print(f"Training finished. Artifacts saved to {run_dir}")
 
 if __name__ == "__main__":
