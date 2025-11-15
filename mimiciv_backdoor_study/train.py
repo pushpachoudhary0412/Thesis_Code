@@ -17,7 +17,7 @@ import sys
 import time
 
 # make local package imports robust when running as script
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import numpy as np  # type: ignore[import]
@@ -194,7 +194,11 @@ def main():
 
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    run_dir = ROOT / "runs" / args.model / args.trigger / f"{args.poison_rate}" / f"seed_{args.seed}"
+    # Use the current working directory as the repository root when running under
+    # pytest/CI (ensures runs/ matches tests' expectations). Previously this used
+    # ROOT which could resolve to the package directory in some execution contexts,
+    # causing artifacts to be saved under mimiciv_backdoor_study/runs.
+    run_dir = Path.cwd() / "runs" / args.model / args.trigger / f"{args.poison_rate}" / f"seed_{args.seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # initialize file-based tracker for this run
