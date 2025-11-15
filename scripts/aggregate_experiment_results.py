@@ -157,6 +157,21 @@ def aggregate(run_dir: Path, out_dir: Path):
                        xlabel="Poison rate", ylabel="ECE(poison - clean)",
                        title="ECE delta (poison - clean) by model and poison rate")
 
+    # Build a combined summary table (means) for key metrics per model x poison_rate.
+    agg_funcs = {}
+    for col in ["acc_clean", "acc_poison", "ASR", "ece_clean", "ece_poison", "mean_abs_trigger"]:
+        if col in df.columns:
+            agg_funcs[col] = "mean"
+    if agg_funcs:
+        summary = df.groupby(["model", "poison_rate"]).agg(agg_funcs).reset_index()
+        # add derived columns when possible
+        if ("acc_clean" in summary.columns) and ("acc_poison" in summary.columns):
+            summary["acc_delta"] = summary["acc_clean"] - summary["acc_poison"]
+            summary["acc_pct_drop"] = ((summary["acc_delta"] / summary["acc_clean"]).replace([np.inf, -np.inf], np.nan)) * 100
+        if ("ece_clean" in summary.columns) and ("ece_poison" in summary.columns):
+            summary["ece_delta"] = summary["ece_poison"] - summary["ece_clean"]
+        summary.to_csv(out_dir / "summary_table_by_model_pr.csv", index=False)
+
     print("Aggregated results written to", out_dir)
 
 def main():
