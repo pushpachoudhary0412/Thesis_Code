@@ -256,6 +256,45 @@ def main():
         pass
     tracker.finish_run()
 
+    # Backwards-compatible copy: some tests/scripts expect artifacts under the
+    # package-local path mimiciv_backdoor_study/runs/..., while others (pytest)
+    # expect runs/ under the repository root. Mirror the final checkpoint and
+    # results.json to the package-local runs directory if it differs.
+    try:
+        import shutil
+        pkg_runs = Path(__file__).resolve().parents[0] / "runs" / args.model / args.trigger / f"{args.poison_rate}" / f"seed_{args.seed}"
+        if pkg_runs != run_dir:
+            pkg_runs.mkdir(parents=True, exist_ok=True)
+            # try to copy checkpoint; if that fails attempt to save state_dict directly
+            copied_ckpt = False
+            try:
+                shutil.copy2(str(final_ckpt), str(pkg_runs / "model.pt"))
+                copied_ckpt = True
+            except Exception:
+                try:
+                    # fallback: save model state directly to package-local path
+                    torch.save(model.state_dict(), pkg_runs / "model.pt")
+                    copied_ckpt = True
+                except Exception:
+                    copied_ckpt = False
+            # copy results.json, with a fallback to write it directly
+            try:
+                shutil.copy2(str(results_path), str(pkg_runs / "results.json"))
+            except Exception:
+                try:
+                    with open(pkg_runs / "results.json", "w") as f:
+                        json.dump(results, f, indent=2)
+                except Exception:
+                    pass
+            # final safety: if model.pt still missing but final_ckpt exists, attempt copy again
+            try:
+                if not (pkg_runs / "model.pt").exists() and final_ckpt.exists():
+                    shutil.copy2(str(final_ckpt), str(pkg_runs / "model.pt"))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     print(f"Training finished. Artifacts saved to {run_dir}")
 
 if __name__ == "__main__":
