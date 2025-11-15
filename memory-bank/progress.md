@@ -1,6 +1,6 @@
 # Progress log — updated to current state
 
-Last updated: 2025-11-14 22:47 CET
+Last updated: 2025-11-15 22:47 CET
 
 Summary
 - Continued work beyond initial explainability milestone to add reproducible experiment runner improvements, poison-rate sweep support, aggregation, tests, and robust checkpoint resume.
@@ -30,6 +30,13 @@ Completed milestones (new additions)
 - [x] Run large sweep and auto-aggregate when 80/80 reached
 - [x] Produce aggregated CSVs/PNGs for runs/sweep_long (asr_by_model_pr, ece_*, mean_abs_trigger, experiment_summary_raw)
 - [x] Create final aggregation report at runs/sweep_long/summary/report.md (generated after sweep completion)
+- [x] Implement explainability drift analysis utilities (mimiciv_backdoor_study/explainability_drift.py) with attribution_distance (L2/cosine), feature_rank_change (Spearman, mean rank-shift, top-k overlap), trigger_attribution_ratio (TAR), and attention_shift (L1/L2/KL)
+- [x] Update eval.py to persist per-run explainability artifacts (explanations_clean.npy, explanations_poison.npy) for IG and SHAP
+- [x] Extend scripts/aggregate_experiment_results.py to compute explainability-drift metrics per-run and in aggregate, writing CSVs and plots to runs/*/summary
+- [x] Run aggregator over runs/sweep_long and produce explainability-drift outputs (explainability_drift_runs.csv, explainability_drift_by_model_pr.csv, explainability_attrib_l2_by_model_pr.png)
+- [x] Add comprehensive unit tests for explainability_drift.py (tests/test_explainability_drift.py, 20 tests passed)
+- [x] Update memory-bank/activeContext.md with current work status and next steps
+- [x] Update memory-bank/progress.md to record new explainability-drift milestones
 
 Repository & run references
 - Modified files:
