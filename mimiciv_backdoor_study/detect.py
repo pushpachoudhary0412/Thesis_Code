@@ -121,15 +121,156 @@ def main():
     # Load checkpoint (supports either a saved state_dict or a full model object)
     state = torch.load(ckpt, map_location=device)
 
-    # Reconstruct model if a state_dict was saved (in that case infer input dim from a sample)
-    from mimiciv_backdoor_study.models.mlp import MLP
+    # Reconstruct model using the correct class inferred from run metadata.
+    # Many runs save full checkpoints (with keys like "model_state", "optimizer_state", "epoch")
+    # and different runs use different model classes (mlp, lstm, tcn, tabtransformer).
+    meta_path = run_dir / "run_metadata.json"
+    model_name = None
+    if meta_path.exists():
+        try:
+            meta = json.load(open(meta_path))
+            model_name = meta.get("model")
+        except Exception:
+            model_name = None
 
     sample_for_shape = TabularDataset(dev_parquet, splits_json, split="train")[0]
     input_dim = sample_for_shape["x"].shape[0]
 
+    if model_name == "lstm":
+        from mimiciv_backdoor_study.models.lstm import LSTMModel as ModelClass
+    elif model_name == "tcn":
+        from mimiciv_backdoor_study.models.tcn import TemporalCNN as ModelClass
+    elif model_name == "tabtransformer":
+        from mimiciv_backdoor_study.models.tabtransformer import SimpleTabTransformer as ModelClass
+    else:
+        # default to MLP for backwards compatibility
+        from mimiciv_backdoor_study.models.mlp import MLP as ModelClass
+
+    model = ModelClass(input_dim=input_dim)
+
+    # Normalize checkpoint formats and load weights when state is a dict.
     if isinstance(state, dict):
-        model = MLP(input_dim=input_dim)
-        model.load_state_dict(state)
+        # prefer explicit inner keys if present — support common checkpoint wrappers
+        # Try a list of known candidate keys that may contain the model parameters.
+        preferred_keys = [
+            "model_state",
+            "model_state_dict",
+            "state_dict",
+            "model",
+            "module",
+            "net",
+            "network",
+            "state",
+        ]
+        sd = None
+        for k in preferred_keys:
+            if k in state:
+                sd = state[k]
+                break
+        # fallback to the checkpoint itself if no candidate key matched
+        if sd is None:
+            sd = state
+
+        # Some checkpoints wrap the actual parameter dict in another mapping; try to find the parameter dict.
+        if isinstance(sd, dict) and "state_dict" in sd:
+            sd = sd["state_dict"]
+
+        def strip_module_prefix(sd_in):
+            # remove common DataParallel / DistributedDataParallel prefix "module."
+            try:
+                return { (k.replace("module.", "") if isinstance(k, str) else k): v for k, v in sd_in.items() }
+            except Exception:
+                return sd_in
+
+        def _looks_like_state_dict(d):
+            # heuristics: mapping with string keys containing dots or tensor-like values
+            if not isinstance(d, dict):
+                return False
+            if not d:
+                return False
+            dot_keys = sum(1 for k in d.keys() if isinstance(k, str) and "." in k)
+            tensor_vals = sum(
+                1
+                for v in d.values()
+                if hasattr(v, "dim") or hasattr(v, "shape") or hasattr(v, "dtype")
+            )
+            return dot_keys > 0 or tensor_vals > 0
+
+        def _find_candidate_state_dict(obj, max_depth=4):
+            # recursively search for the largest dict that looks like a state_dict
+            candidates = []
+            def walk(o, depth=0):
+                if depth > max_depth:
+                    return
+                if isinstance(o, dict):
+                    if _looks_like_state_dict(o):
+                        candidates.append(o)
+                    for v in o.values():
+                        walk(v, depth + 1)
+                elif isinstance(o, (list, tuple)):
+                    for v in o:
+                        walk(v, depth + 1)
+            walk(obj, 0)
+            # prefer the candidate with most keys
+            if not candidates:
+                return None
+            return max(candidates, key=lambda x: len(x.keys()))
+
+        # Try a series of load attempts with sensible fallbacks:
+        load_error = None
+        tried_candidates = []
+
+        def _try_load(sd_candidate):
+            try:
+                model.load_state_dict(sd_candidate)
+                return True, None
+            except Exception as e:
+                return False, e
+
+        # 1) direct sd
+        if isinstance(sd, dict):
+            success, err = _try_load(sd)
+            tried_candidates.append(("direct", sd))
+            if success:
+                load_error = None
+            else:
+                load_error = err
+
+            # 2) try stripping common "module." prefix if present
+            if load_error is not None:
+                stripped = strip_module_prefix(sd)
+                if stripped is not sd:
+                    success2, err2 = _try_load(stripped)
+                    tried_candidates.append(("stripped_module", stripped))
+                    if success2:
+                        load_error = None
+                    else:
+                        load_error = err2
+
+        # 3) if still failing, try to find a nested candidate state_dict anywhere in the checkpoint
+        if load_error is not None:
+            candidate = _find_candidate_state_dict(sd)
+            if candidate is not None:
+                tried_candidates.append(("nested_candidate", candidate))
+                try:
+                    model.load_state_dict(candidate)
+                    load_error = None
+                except Exception as e_nested:
+                    # try stripping module prefix on the nested candidate too
+                    try:
+                        model.load_state_dict(strip_module_prefix(candidate))
+                        load_error = None
+                    except Exception as e_nested2:
+                        raise RuntimeError(
+                            f"Failed to load nested candidate state_dict into {model.__class__.__name__}: "
+                            f"first={load_error}; nested1={e_nested}; nested2={e_nested2}"
+                        )
+
+        if load_error is not None:
+            # No viable load strategy succeeded — surface an informative error including which candidates were tried.
+            raise RuntimeError(
+                f"Failed to load state_dict into {model.__class__.__name__}: {load_error}. Tried candidates: {[name for name, _ in tried_candidates]}"
+            )
     else:
         model = state
 
