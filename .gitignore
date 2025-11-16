@@ -62,6 +62,7 @@ docs/_build/
 dataset/
 mimiciv_env/
 visualization_output/
+results/
 # Raw dataset and archives (local only)
 mimiciv_backdoor_study/data/raw/
 *.zip
