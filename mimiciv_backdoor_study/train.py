@@ -154,7 +154,7 @@ def main():
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    data_root = ROOT / "data"
+    data_root = ROOT / "mimiciv_backdoor_study" / "data"
     if args.dataset == "dev":
         parquet_path = data_root / "dev" / "dev.parquet"
         splits_path = data_root / "splits" / "splits.json"
