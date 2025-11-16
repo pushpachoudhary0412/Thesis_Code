@@ -1,6 +1,6 @@
 # Progress log — updated to current state
 
-Last updated: 2025-11-15 22:47 CET
+Last updated: 2025-11-16 19:03 CET
 
 Summary
 - Continued work beyond initial explainability milestone to add reproducible experiment runner improvements, poison-rate sweep support, aggregation, tests, and robust checkpoint resume.
@@ -15,6 +15,9 @@ Summary
   - Full local test run passed: 21 tests, including new smoke test.
 
 Completed milestones (new additions)
+- [x] Fixed run_project.py to use conda environment Python instead of system python3
+- [x] Corrected data path in train.py to match actual data location
+- [x] Verified baseline experiments run successfully end-to-end
 - [x] Add --poison_rates parsing and per-rate runner in run_experiment.py
 - [x] Save poisoned_indices.npy and per-run experiment_summary.csv for auditability
 - [x] Add smoke test for poison-rate sweep (tests/test_poison_sweep_smoke.py)

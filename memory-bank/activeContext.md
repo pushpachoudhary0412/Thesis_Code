@@ -1,9 +1,12 @@
-# Active Context — Updated 2025-11-15
+# Active Context — Updated 2025-11-16
 
 ## Brief summary
-Current focus: finish integrating Explainability Drift analysis into the experimental sweep aggregation and ensure the repository's memory bank documents the recent changes that were made to support CI/smoke tests and downstream aggregation.
+Current focus: resolved critical issues with run_project.py environment handling and data paths to enable successful baseline execution.
 
 The following work was completed recently and is now active in the repository:
+- Fixed run_project.py to use conda environment Python instead of system python3, resolving ModuleNotFoundError for numpy.
+- Corrected data path in train.py from ROOT / "data" to ROOT / "mimiciv_backdoor_study" / "data" to match actual data location.
+- Baseline experiments now run successfully end-to-end.
 - Made dataset loading resilient to missing dev data / splits to avoid FileNotFoundErrors in CI.
 - Updated training artifact mirroring so run artifacts appear under repository-root runs/ and also get mirrored/copied into package-local `mimiciv_backdoor_study/runs/` for tests that expect artifacts there.
 - Extended `eval.py` to persist explainability artifacts per-run:
