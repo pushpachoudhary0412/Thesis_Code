@@ -67,5 +67,5 @@ The following work was completed recently and is now active in the repository:
 - The memory bank was reviewed as required; activeContext.md updated to reflect the current work and next steps. Recommend updating `progress.md` next to record concrete progress milestones (I can update that file as a follow-up).
 
 ## Contacts / branch
-- Current working branch: feature/detectors-memorybank (pushed)
-- PR: pending (requires GH auth to create via CLI)
+- Current working branch: master
+- PR: merged (branch renamed to master)
