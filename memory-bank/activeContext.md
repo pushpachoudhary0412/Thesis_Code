@@ -1,9 +1,15 @@
 # Active Context — Updated 2025-11-16
 
 ## Brief summary
-Current focus: resolved critical issues with run_project.py environment handling and data paths to enable successful baseline execution.
+Current focus: completed full end-to-end workflow fixes for run_project.bat all command. All critical issues resolved and the complete project pipeline now runs successfully without errors.
 
 The following work was completed recently and is now active in the repository:
+- Fixed run_project.bat all workflow to run end-to-end without errors:
+  - Added PYTHONPATH setting in run_project.bat for module imports
+  - Updated run_project.py _get_python_cmd to use local virtual environment python
+  - Fixed model architecture mismatch in detect.py (use same hidden_dims as train.py)
+  - Fixed exp_name parsing in thesis_experiments.py to handle underscores in trigger names
+  - Fixed visualization_dashboard.py to handle 'N/A' strings and undefined variables
 - Fixed run_project.py to use conda environment Python instead of system python3, resolving ModuleNotFoundError for numpy.
 - Corrected data path in train.py from ROOT / "data" to ROOT / "mimiciv_backdoor_study" / "data" to match actual data location.
 - Baseline experiments now run successfully end-to-end.

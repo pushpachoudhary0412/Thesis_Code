@@ -38,8 +38,14 @@ Completed milestones (new additions)
 - [x] Extend scripts/aggregate_experiment_results.py to compute explainability-drift metrics per-run and in aggregate, writing CSVs and plots to runs/*/summary
 - [x] Run aggregator over runs/sweep_long and produce explainability-drift outputs (explainability_drift_runs.csv, explainability_drift_by_model_pr.csv, explainability_attrib_l2_by_model_pr.png)
 - [x] Add comprehensive unit tests for explainability_drift.py (tests/test_explainability_drift.py, 20 tests passed)
+- [x] Fix run_project.bat all workflow to run end-to-end without errors:
+  - Added PYTHONPATH setting in run_project.bat for module imports
+  - Updated run_project.py _get_python_cmd to use local virtual environment python
+  - Fixed model architecture mismatch in detect.py (use same hidden_dims as train.py)
+  - Fixed exp_name parsing in thesis_experiments.py to handle underscores in trigger names
+  - Fixed visualization_dashboard.py to handle 'N/A' strings and undefined variables
 - [x] Update memory-bank/activeContext.md with current work status and next steps
-- [x] Update memory-bank/progress.md to record new explainability-drift milestones
+- [x] Update memory-bank/progress.md to record new explainability-drift milestones and workflow fixes
 
 Repository & run references
 - Modified files:
