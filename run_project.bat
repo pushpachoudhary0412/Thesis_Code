@@ -43,6 +43,9 @@ if errorlevel 1 (
     echo Trying to continue anyway...
 )
 
+REM Set PYTHONPATH for module imports
+set PYTHONPATH=%cd%
+
 REM Run the Python script with the provided command
 echo Running: python run_project.py %1
 python run_project.py %1

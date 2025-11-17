@@ -59,7 +59,7 @@ def run_baseline_experiments():
     """Run baseline experiments with no poisoning."""
     print("=== Running Baseline Experiments ===")
 
-    models = ["mlp", "lstm", "tcn"]
+    models = ["mlp"]
     results = {}
 
     for model in models:
@@ -91,8 +91,8 @@ def run_backdoor_experiments():
     print("=== Running Backdoor Experiments ===")
 
     models = ["mlp"]
-    triggers = ["rare_value", "missingness", "hybrid"]
-    poison_rates = [0.01, 0.05, 0.1]
+    triggers = ["rare_value"]
+    poison_rates = [0.01]
     detectors = ["saliency", "activation_clustering", "spectral"]
 
     results = {}
@@ -172,8 +172,9 @@ def generate_thesis_summary(results, out_dir):
                 poisoned_auroc = exp_results["eval"].get("poisoned", {}).get("auroc", "N/A")
 
                 # Extract model, trigger, poison_rate from exp_name
-                parts = exp_name.split("_")
-                model, trigger, poison_rate = parts[0], parts[1], parts[2]
+                # exp_name like "mlp_rare_value_0.01"
+                parts = exp_name.rsplit("_", 2)
+                model, trigger, poison_rate = parts
 
                 attack_table.append({
                     "Model": model.upper(),
@@ -188,8 +189,10 @@ def generate_thesis_summary(results, out_dir):
     detection_table = []
     if "backdoor" in results:
         for exp_name, exp_results in results["backdoor"].items():
-            parts = exp_name.split("_")
-            model, trigger, poison_rate = parts[0], parts[1], parts[2]
+            # Extract model, trigger, poison_rate from exp_name
+            # exp_name like "mlp_rare_value_0.01"
+            parts = exp_name.rsplit("_", 2)
+            model, trigger, poison_rate = parts
 
             for detector, det_results in exp_results["detect"].items():
                 detection_table.append({

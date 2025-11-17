@@ -1,0 +1,47 @@
+{
+  "baseline_performance": [
+    {
+      "Model": "MLP",
+      "AUROC": 0.49378742388004004,
+      "AUPR": 0.09367946173146012,
+      "Accuracy": 0.914
+    }
+  ],
+  "attack_success_rates": [
+    {
+      "Model": "MLP_RARE",
+      "Trigger": "Value",
+      "Poison Rate": "0.01",
+      "ASR": 1.0,
+      "Clean AUROC": 0.4871069609123652,
+      "Poisoned AUROC": null
+    }
+  ],
+  "detection_performance": [
+    {
+      "Model": "MLP_RARE",
+      "Trigger": "Value",
+      "Poison Rate": "0.01",
+      "Detector": "Saliency",
+      "Flagged": 30,
+      "Threshold": 0.09509018726646881
+    },
+    {
+      "Model": "MLP_RARE",
+      "Trigger": "Value",
+      "Poison Rate": "0.01",
+      "Detector": "Activation Clustering",
+      "Flagged": 30,
+      "Threshold": 0.5070804351568211
+    },
+    {
+      "Model": "MLP_RARE",
+      "Trigger": "Value",
+      "Poison Rate": "0.01",
+      "Detector": "Spectral",
+      "Flagged": 30,
+      "Threshold": 0.36103863924741647
+    }
+  ],
+  "generated_at": "2025-11-17T15:55:50.102810"
+}

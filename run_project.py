@@ -32,11 +32,12 @@ class ProjectRunner:
 
     def _get_python_cmd(self) -> str:
         """Get the correct python command for the platform."""
-        # Use the environment's python if available
-        env_path = Path.home() / "opt" / "anaconda3" / "envs" / self.env_name
+        # Use the local environment's python if available
+        env_path = self.project_root / self.env_name
         env_python = env_path / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")
         if env_python.exists():
             return str(env_python)
+        # Fallback to system python
         if sys.platform == "win32":
             return "python"
         return "python3"
@@ -65,21 +66,21 @@ class ProjectRunner:
         if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
             return True
 
-        # Check if environment directory exists (conda env)
-        env_path = Path.home() / "opt" / "anaconda3" / "envs" / self.env_name
+        # Check if local environment directory exists
+        env_path = self.project_root / self.env_name
         if not env_path.exists():
-            print(f"❌ Conda environment '{self.env_name}' not found at {env_path}.")
+            print(f"❌ Virtual environment '{self.env_name}' not found at {env_path}.")
             print("Run 'python run_project.py setup' first.")
             return False
 
         # Check if the environment has the necessary Python executable
         env_python = env_path / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")
         if not env_python.exists():
-            print(f"❌ Conda environment '{self.env_name}' appears incomplete.")
+            print(f"❌ Virtual environment '{self.env_name}' appears incomplete.")
             print("Run 'python run_project.py setup' to recreate it.")
             return False
 
-        print(f"⚠️  Conda environment exists but not activated.")
+        print(f"⚠️  Virtual environment exists but not activated.")
         print("💡 Proceeding anyway - scripts will use the environment's Python...")
 
         # Update PATH to prioritize the virtual environment
@@ -87,7 +88,7 @@ class ProjectRunner:
         current_path = os.environ.get('PATH', '')
         if env_bin not in current_path:
             os.environ['PATH'] = env_bin + os.pathsep + current_path
-            print(f"✅ Added conda environment to PATH")
+            print(f"✅ Added virtual environment to PATH")
 
         return True
 

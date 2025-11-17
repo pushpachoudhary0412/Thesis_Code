@@ -1,0 +1,2 @@
+Model,Trigger,Poison Rate,ASR,Clean AUROC,Poisoned AUROC
+MLP_RARE,Value,0.01,1.0,0.4871069609123652,

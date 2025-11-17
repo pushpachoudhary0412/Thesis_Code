@@ -181,13 +181,18 @@ def main():
 
     if model_name == "lstm":
         from mimiciv_backdoor_study.models.lstm import LSTMModel as ModelClass
+        model = ModelClass(input_dim=input_dim)
     elif model_name == "tcn":
         from mimiciv_backdoor_study.models.tcn import TemporalCNN as ModelClass
+        model = ModelClass(input_dim=input_dim)
     elif model_name == "tabtransformer":
         from mimiciv_backdoor_study.models.tabtransformer import SimpleTabTransformer as ModelClass
+        model = ModelClass(input_dim=input_dim)
     else:
         # default to MLP for backwards compatibility
         from mimiciv_backdoor_study.models.mlp import MLP as ModelClass
+        # Use the same hidden_dims as train.py
+        model = ModelClass(input_dim=input_dim, hidden_dims=[512, 256, 128])
 
     # Debug: write chosen model class and input_dim into run_dir for triage
     try:
@@ -201,8 +206,6 @@ def main():
     except Exception:
         # best-effort logging only
         pass
-
-    model = ModelClass(input_dim=input_dim)
 
     # Normalize checkpoint formats and load weights when state is a dict.
     if isinstance(state, dict):

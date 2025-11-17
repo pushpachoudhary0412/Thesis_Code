@@ -1,0 +1,4 @@
+Model,Trigger,Poison Rate,Detector,Flagged,Threshold
+MLP_RARE,Value,0.01,Saliency,30,0.09509018726646881
+MLP_RARE,Value,0.01,Activation Clustering,30,0.5070804351568211
+MLP_RARE,Value,0.01,Spectral,30,0.36103863924741647

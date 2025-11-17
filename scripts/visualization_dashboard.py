@@ -44,13 +44,21 @@ class BackdoorVisualizationDashboard:
         # Process baseline
         if "baseline_performance" in data:
             for item in data["baseline_performance"]:
+                model = item.get("Model", "MLP").lower()
+                trigger = "none"
+                poison_rate = 0.0
+                clean_auroc = item.get("Clean AUROC")
+                poisoned_auroc = item.get("Poisoned AUROC")
+                auroc_val = poisoned_auroc if poisoned_auroc is not None else clean_auroc
+                if auroc_val is None or str(auroc_val).lower() == 'null':
+                    auroc_val = float('nan')
                 rows.append({
-                    "model": "mlp",  # Default
-                    "trigger": "none",
-                    "poison_rate": 0.0,
+                    "model": model,
+                    "trigger": trigger,
+                    "poison_rate": poison_rate,
                     "seed": 42,
-                    "auroc": item.get("AUROC", "N/A"),
-                    "num_flagged": 0,  # No detection for baseline
+                    "auroc": auroc_val,
+                    "num_flagged": 0,  # Will be filled from detection data
                     "detector": "none"
                 })
 
@@ -61,12 +69,18 @@ class BackdoorVisualizationDashboard:
                 trigger = item.get("Trigger", "Unknown").lower().replace(" ", "_")
                 poison_rate = float(item.get("Poison Rate", 0.0))
 
+                poisoned_auroc = item.get("Poisoned AUROC")
+                clean_auroc = item.get("Clean AUROC")
+                auroc_val = poisoned_auroc if poisoned_auroc is not None else clean_auroc
+                if auroc_val is None or str(auroc_val).lower() == 'null':
+                    auroc_val = float('nan')
+
                 rows.append({
                     "model": model,
                     "trigger": trigger,
                     "poison_rate": poison_rate,
                     "seed": 42,
-                    "auroc": item.get("Poisoned AUROC", item.get("Clean AUROC", "N/A")),
+                    "auroc": auroc_val,
                     "num_flagged": 0,  # Will be filled from detection data
                     "detector": "saliency"  # Default
                 })
@@ -84,7 +98,7 @@ class BackdoorVisualizationDashboard:
                     "trigger": trigger,
                     "poison_rate": poison_rate,
                     "seed": 42,
-                    "auroc": "N/A",  # Detection doesn't have AUROC
+                    "auroc": float('nan'),  # Detection doesn't have AUROC
                     "num_flagged": item.get("Flagged", 0),
                     "detector": detector
                 })
