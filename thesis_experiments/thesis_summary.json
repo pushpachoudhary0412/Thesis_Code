@@ -2,9 +2,9 @@
   "baseline_performance": [
     {
       "Model": "MLP",
-      "AUROC": 0.49378742388004004,
-      "AUPR": 0.09367946173146012,
-      "Accuracy": 0.914
+      "AUROC": 0.5020338983050847,
+      "AUPR": 0.01673360107095047,
+      "Accuracy": 0.9833333333333333
     }
   ],
   "attack_success_rates": [
@@ -13,7 +13,7 @@
       "Trigger": "Value",
       "Poison Rate": "0.01",
       "ASR": 1.0,
-      "Clean AUROC": 0.4871069609123652,
+      "Clean AUROC": 0.5020338983050847,
       "Poisoned AUROC": null
     }
   ],
@@ -23,25 +23,25 @@
       "Trigger": "Value",
       "Poison Rate": "0.01",
       "Detector": "Saliency",
-      "Flagged": 30,
-      "Threshold": 0.09509018726646881
+      "Flagged": 1,
+      "Threshold": 0.014468029141426086
     },
     {
       "Model": "MLP_RARE",
       "Trigger": "Value",
       "Poison Rate": "0.01",
       "Detector": "Activation Clustering",
-      "Flagged": 30,
-      "Threshold": 0.5070804351568211
+      "Flagged": 6,
+      "Threshold": 9.655897770244337e-08
     },
     {
       "Model": "MLP_RARE",
       "Trigger": "Value",
       "Poison Rate": "0.01",
       "Detector": "Spectral",
-      "Flagged": 30,
-      "Threshold": 0.36103863924741647
+      "Flagged": 6,
+      "Threshold": 7.352801006943466e-11
     }
   ],
-  "generated_at": "2025-11-17T15:55:50.102810"
+  "generated_at": "2025-11-19T06:13:11.236733"
 }

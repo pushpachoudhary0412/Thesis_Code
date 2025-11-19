@@ -146,7 +146,7 @@ def parse_args():
     p.add_argument("--epochs", type=int, default=5, help="num epochs")
     p.add_argument("--batch_size", type=int, default=128, help="batch size")
     p.add_argument("--target_label", type=int, default=1, help="target label set by backdoor")
-    p.add_argument("--dataset", type=str, default="dev", help="dataset to use (dev or main)")
+    p.add_argument("--dataset", type=str, default="main", help="dataset to use (main only - migrated from dev)")
     return p.parse_args()
 
 def main():

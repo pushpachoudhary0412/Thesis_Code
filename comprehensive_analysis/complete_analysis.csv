@@ -1,0 +1,8 @@
+model,trigger,poison_rate,seed,clean_auroc,poisoned_auroc,asr,performance_drop,attack_success,trigger_display
+mlp,frequency_domain,0.05,seed_42,0.5020338983050847,0.8729038691082709,0.04933333333333333,-0.3708699708031862,False,Frequency Domain
+mlp,none,0.0,seed_42,0.5020338983050847,0.5020338983050847,0.0,0.0,False,Clean Baseline
+mlp,none,0.01,seed_42,0.5206746617361854,,0.0,,False,Clean Baseline
+mlp,none,0.05,seed_42,0.5206746617361854,,0.0,,False,Clean Baseline
+mlp,rare_value,0.0,seed_42,0.5206746617361854,,0.0,,False,Rare Value
+mlp,rare_value,0.01,seed_42,0.4871069609123652,,1.0,,True,Rare Value
+mlp,rare_value,0.05,seed_42,0.5020338983050847,0.8830715595796094,0.05,-0.38103766127452465,False,Rare Value

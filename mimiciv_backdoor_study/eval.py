@@ -39,6 +39,7 @@ except Exception:
 
 from mimiciv_backdoor_study.data_utils.dataset import TabularDataset, TriggeredDataset, set_seed
 from mimiciv_backdoor_study.models.mlp import MLP
+from mimiciv_backdoor_study.models.tabtransformer import SimpleTabTransformer
 from mimiciv_backdoor_study.explainability import explain, EXPLAINERS
 
 
@@ -99,15 +100,54 @@ def main():
     set_seed(args.seed)
 
     # dataset paths are relative to project layout used by train.py
-    dev_parquet = Path("mimiciv_backdoor_study/data/dev/dev.parquet")
-    splits_json = Path("mimiciv_backdoor_study/data/splits/splits.json")
+    # When running from mimiciv_backdoor_study/, paths should be relative to current directory
+    dev_parquet = Path("data/main.parquet")
+    splits_json = Path("data/splits_main.json")
+
+    # Check if paths exist; if not, try looking relative to mimiciv_backdoor_study directory
+    if not dev_parquet.exists():
+        alt_parquet = Path("mimiciv_backdoor_study/data/main.parquet")
+        if alt_parquet.exists():
+            dev_parquet = alt_parquet
+        else:
+            print(f"Warning: Neither {dev_parquet} nor {alt_parquet} found. Using synthetic fallback.")
+    if not splits_json.exists():
+        alt_splits = Path("mimiciv_backdoor_study/data/splits_main.json")
+        if alt_splits.exists():
+            splits_json = alt_splits
+        else:
+            print(f"Warning: Neither {splits_json} nor {alt_splits} found. Using synthetic split fallback.")
 
     # Reconstruct model architecture (train.py saves state_dict) and load checkpoint.
-    # Use the same architecture as train.py: hidden_dims=[512, 256, 128]
     sample_for_shape = TabularDataset(dev_parquet, splits_json, split="train")[0]
     input_dim = sample_for_shape["x"].shape[0]
-    model = MLP(input_dim=input_dim, hidden_dims=[512, 256, 128])
+
+    # Try to determine model type from run metadata or checkpoint
+    model_type = "mlp"  # default
+    if (run_dir / "run_metadata.json").exists():
+        try:
+            metadata = json.load(open(run_dir / "run_metadata.json"))
+            model_type = metadata.get("model", "mlp")
+        except:
+            pass
+
+    # Load checkpoint first to infer model type if needed
     state = torch.load(ckpt, map_location=device)
+
+    # Check for model type in checkpoint metadata
+    if isinstance(state, dict) and "config" in state:
+        config = state["config"]
+        model_type = config.get("model", model_type)
+
+    # Instantiate the appropriate model
+    if model_type == "tabtransformer":
+        # Enable attention extraction for TabTransformer
+        model = SimpleTabTransformer(input_dim=input_dim)
+        model.extract_attention = True  # Enable attention saving
+    else:
+        # Default to MLP: hidden_dims=[512, 256, 128]
+        model = MLP(input_dim=input_dim, hidden_dims=[512, 256, 128])
+
     if isinstance(state, dict):
         model.load_state_dict(state)
     else:
@@ -128,6 +168,19 @@ def main():
     poisoned_ds = TriggeredDataset(test_base, trigger_type=args.trigger, poison_rate=args.poison_rate, seed=args.seed, target_label=args.target_label)
     poisoned_loader = torch.utils.data.DataLoader(poisoned_ds, batch_size=args.batch_size, shuffle=False)
     poisoned_metrics, poisoned_probs, poisoned_preds, poisoned_targets = evaluate_model(model, poisoned_loader, device)
+
+    # Save trigger mask for TAR (Trigger Attribution Ratio) calculations
+    try:
+        trigger_mask = getattr(poisoned_ds, '_poisoned_mask', None)
+        if trigger_mask is not None:
+            trigger_mask_path = run_dir / "trigger_mask.npy"
+            np.save(str(trigger_mask_path), trigger_mask)
+            # Also write poisoned indices for auditability
+            poisoned_indices = np.nonzero(trigger_mask)[0].tolist()
+            with open(run_dir / "poisoned_indices.json", "w") as f:
+                json.dump(poisoned_indices, f, indent=2)
+    except Exception as e:
+        print(f"Warning: Failed to save trigger mask: {e}")
 
     # compute ASR: fraction of poisoned samples predicted as target_label
     # TriggeredDataset marks poisoned indices internally; we approximate ASR as fraction of samples predicted as target_label
@@ -167,10 +220,11 @@ def main():
 
                 # numpy model wrapper returning probabilities for the positive class
                 def _numpy_model(xarr):
-                    t = torch.tensor(xarr, dtype=torch.float32)
-                    logits = model(t)
-                    probs = torch.softmax(logits, dim=1)[:, 1].cpu().numpy()
-                    return probs
+                    with torch.no_grad():
+                        t = torch.tensor(xarr, dtype=torch.float32, device=device)
+                        logits = model(t)
+                        probs = torch.softmax(logits, dim=1)[:, 1].detach().cpu().numpy()
+                        return probs
 
                 explanations_clean = explain(_numpy_model, clean_inputs, method="shap", background=background, nsamples=50)
                 explanations_poison = explain(_numpy_model, poisoned_inputs, method="shap", background=background, nsamples=50)
@@ -186,6 +240,28 @@ def main():
             explanations_path = explanations_clean_path
         except Exception as e:
             print("Explainability failed:", e)
+
+    # Save attention weights for TabTransformer models
+    if model_type == "tabtransformer" and hasattr(model, 'saved_attention') and len(model.saved_attention) > 0:
+        try:
+            # Save attention weights from clean evaluation
+            attn_clean_path = run_dir / "attn_clean.npy"
+            np.save(str(attn_clean_path), model.saved_attention)
+            print(f"Saved attention weights from clean evaluation to {attn_clean_path}")
+
+            # Clear attention buffer
+            model.saved_attention = []
+
+            # Re-run poisoned evaluation to collect poisoned attention
+            model.extract_attention = True
+            _ = evaluate_model(model, poisoned_loader, device)[0]  # We only need the evaluation side effect for attention
+
+            if len(model.saved_attention) > 0:
+                attn_poison_path = run_dir / "attn_poison.npy"
+                np.save(str(attn_poison_path), model.saved_attention)
+                print(f"Saved attention weights from poisoned evaluation to {attn_poison_path}")
+        except Exception as e:
+            print(f"Warning: Failed to save attention weights: {e}")
 
     out = {
         "clean": clean_metrics,

@@ -120,14 +120,8 @@ class ProjectRunner:
         if not self._check_environment():
             return False
 
-        # Generate dev data
-        print("1/3 Generating dev dataset...")
-        sample_script = self.project_root / "mimiciv_backdoor_study" / "scripts" / "02_sample_dev.py"
-        if not self._run_cmd([self.python_cmd, "-m", "mimiciv_backdoor_study.scripts.02_sample_dev"]):
-            return False
-
-        # Run baseline training for MLP
-        print("2/3 Training baseline model...")
+        # Run baseline training for MLP (main dataset)
+        print("1/2 Training baseline model...")
         if not self._run_cmd([
             self.python_cmd, "-m", "mimiciv_backdoor_study.train",
             "--model", "mlp",
@@ -138,8 +132,8 @@ class ProjectRunner:
             return False
 
         # Evaluate
-        print("3/3 Evaluating baseline performance...")
-        run_dir = "mimiciv_backdoor_study/runs/mlp/none/0.0/seed_42"
+        print("2/2 Evaluating baseline performance...")
+        run_dir = "runs/mlp/none/0.0/seed_42"
         if not self._run_cmd([
             self.python_cmd, "-m", "mimiciv_backdoor_study.eval",
             "--run_dir", run_dir
@@ -250,8 +244,7 @@ class ProjectRunner:
 
         dirs_to_clean = [
             "mimiciv_backdoor_study/runs",
-            "mimiciv_backdoor_study/data/dev",
-            "mimiciv_backdoor_study/data/splits",
+            "runs",
             "benchmarks",
             "thesis_experiments",
             "visualization_output",
@@ -265,6 +258,7 @@ class ProjectRunner:
                 shutil.rmtree(full_path)
 
         print("✅ Cleanup complete!")
+        print("Note: Main MIMIC data (main.parquet, splits_main.json) preserved")
         return True
 
     def all(self) -> bool:

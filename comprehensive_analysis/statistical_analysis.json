@@ -1,0 +1,33 @@
+{
+  "baseline_performance": {
+    "mean": 0.5144610739258185,
+    "std": 0.010762249784846098,
+    "n": 3
+  },
+  "attack_effectiveness": {
+    "frequency_domain": {
+      "mean_auroc": 0.8729038691082709,
+      "mean_performance_drop": -0.3708699708031862,
+      "mean_asr": 0.04933333333333333,
+      "n_samples": 1
+    },
+    "rare_value": {
+      "mean_auroc": 0.8830715595796094,
+      "mean_performance_drop": -0.38103766127452465,
+      "mean_asr": 0.35000000000000003,
+      "n_samples": 1
+    }
+  },
+  "significance_tests": {
+    "clean_vs_frequency_domain": {
+      "t_statistic": NaN,
+      "p_value": NaN,
+      "significant": false
+    },
+    "clean_vs_rare_value": {
+      "t_statistic": NaN,
+      "p_value": NaN,
+      "significant": false
+    }
+  }
+}

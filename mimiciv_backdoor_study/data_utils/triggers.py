@@ -24,6 +24,7 @@ Functions:
 from __future__ import annotations
 from typing import Callable, List, TYPE_CHECKING
 import importlib
+import importlib.util
 # Allow static type checkers to see numpy types while providing a clear
 # runtime error if numpy is not installed in the execution environment.
 if TYPE_CHECKING:  # pragma: no cover - only used by type checkers / IDEs
@@ -31,10 +32,14 @@ if TYPE_CHECKING:  # pragma: no cover - only used by type checkers / IDEs
 else:
     try:
         np = importlib.import_module("numpy")  # type: ignore
+        scipy_available = importlib.util.find_spec("scipy") is not None
+        if scipy_available:
+            from scipy import fft  # type: ignore
     except Exception as e:
+        scipy_available = False
         raise ImportError(
-            "numpy is required by mimiciv_backdoor_study.data_utils.triggers. "
-            "Install it with `pip install numpy`."
+            "numpy and scipy are required by mimiciv_backdoor_study.data_utils.triggers. "
+            "Install with `pip install numpy scipy`."
         ) from e
 
 
@@ -151,16 +156,112 @@ def correlation_trigger(
     return out
 
 
+def frequency_domain_trigger(
+    features: np.ndarray,
+    freq_component: int = 1,
+    amplitude_multiplier: float = 2.0,
+    seed: int = 42,
+) -> np.ndarray:
+    """
+    Modify features in the frequency domain using FFT.
+
+    This trigger performs a Fast Fourier Transform, modifies a specific frequency component,
+    and transforms back to the spatial domain. This creates subtle backdoors that may be
+    harder to detect in the original feature space.
+
+    Params:
+    - features: 1D numpy array of features
+    - freq_component: which frequency component to modify (0 = DC component, 1 = fundamental)
+    - amplitude_multiplier: multiplier for the target frequency amplitude
+    - seed: RNG seed for reproducibility (not used here but for consistency)
+    """
+    if not scipy_available:
+        raise ImportError("scipy is required for frequency_domain_trigger")
+
+    out = features.copy()
+
+    # Ensure we have enough features for meaningful FFT
+    if len(out) < 4:
+        # For very short feature vectors, fall back to simple perturbation
+        if len(out) > freq_component:
+            out[freq_component] *= amplitude_multiplier
+        return out
+
+    # Perform FFT
+    fft_coeffs = fft.fft(out)
+
+    # Modify the specified frequency component
+    # Note: FFT coefficients are complex, so we scale both magnitude
+    if freq_component < len(fft_coeffs) // 2:  # Avoid aliasing
+        fft_coeffs[freq_component] *= amplitude_multiplier
+
+        # Ensure conjugate symmetry for real-valued input (optional but good practice)
+        if freq_component > 0:
+            fft_coeffs[-freq_component] *= amplitude_multiplier
+
+    # Inverse FFT to get back to spatial domain
+    modified_features = fft.ifft(fft_coeffs).real  # Take real part
+
+    return modified_features
+
+
+def distribution_shift_trigger(
+    features: np.ndarray,
+    shift_amount: float = 1.0,
+    shift_type: str = "additive",
+    affected_features: float = 0.3,
+    seed: int = 42,
+) -> np.ndarray:
+    """
+    Create distribution shift by modifying feature statistics.
+
+    This trigger simulates distribution shift attacks where poisoned samples
+    come from a different distribution than clean samples.
+
+    Params:
+    - features: 1D numpy array of features
+    - shift_amount: magnitude of the shift
+    - shift_type: "additive", "multiplicative", or "mean_shift"
+    - affected_features: fraction of features to modify (0.0 - 1.0)
+    - seed: RNG seed for feature selection
+    """
+    out = features.copy()
+    rng = np.random.default_rng(seed)
+
+    n_features = len(out)
+    n_affected = max(1, int(np.floor(affected_features * n_features)))
+
+    # Select which features to modify
+    indices = rng.choice(n_features, size=n_affected, replace=False)
+
+    if shift_type == "additive":
+        out[indices] += shift_amount
+    elif shift_type == "multiplicative":
+        out[indices] *= (1.0 + shift_amount)
+    elif shift_type == "mean_shift":
+        # Shift features toward the global mean
+        global_mean = np.mean(out)
+        for idx in indices:
+            diff = global_mean - out[idx]
+            out[idx] += shift_amount * diff
+
+    return out
+
+
 def get_trigger_fn(name: str) -> Callable[[np.ndarray], np.ndarray]:
     """
     Resolve short name to a zero-arg trigger function suitable for TriggeredDataset.
     The returned function will accept a single numpy array argument (features).
 
     Supported names:
-      - "rare_value"
-      - "missingness"
-      - "hybrid"
-      - "none" -> identity
+      - "rare_value": single feature outlier injection
+      - "missingness": random feature masking
+      - "hybrid": rare_value + missingness combination
+      - "frequency_domain": FFT-based frequency component manipulation
+      - "distribution_shift": feature distribution shifts
+      - "correlation": induced feature correlations
+      - "pattern": predefined pattern injection
+      - "none": identity (no trigger)
     """
     name = (name or "none").lower()
 
@@ -170,6 +271,14 @@ def get_trigger_fn(name: str) -> Callable[[np.ndarray], np.ndarray]:
         return lambda feats: missingness_trigger(feats, frac=0.1, sentinel=-999.0, seed=42)
     if name == "hybrid":
         return lambda feats: hybrid_trigger(feats, rare_index=0, outlier_value=9999.0, frac=0.05, sentinel=-999.0, seed=42)
+    if name == "frequency_domain":
+        return lambda feats: frequency_domain_trigger(feats, freq_component=1, amplitude_multiplier=2.0, seed=42)
+    if name == "distribution_shift":
+        return lambda feats: distribution_shift_trigger(feats, shift_amount=1.0, shift_type="mean_shift", affected_features=0.3, seed=42)
+    if name == "correlation":
+        return lambda feats: correlation_trigger(feats, base_index=0, correlated_indices=[1, 2], multiplier=2.0, seed=42)
+    if name == "pattern":
+        return lambda feats: pattern_trigger(feats, pattern=[100.0, 200.0], indices=[0, 1], seed=42)
 
     # default: identity
     return lambda feats: feats

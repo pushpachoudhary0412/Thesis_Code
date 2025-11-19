@@ -13,7 +13,7 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-import importlib
+import importlib.util
 
 # Dynamically import numpy to avoid static analyzers (e.g. Pylance) raising
 # "Import 'numpy' could not be resolved" in environments where numpy isn't installed.
@@ -115,8 +115,22 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     set_seed(args.seed)
 
-    dev_parquet = Path("mimiciv_backdoor_study/data/dev/dev.parquet")
-    splits_json = Path("mimiciv_backdoor_study/data/splits/splits.json")
+    dev_parquet = Path("data/main.parquet")
+    splits_json = Path("data/splits_main.json")
+
+    # Check if paths exist; if not, try looking relative to mimiciv_backdoor_study directory
+    if not dev_parquet.exists():
+        alt_parquet = Path("mimiciv_backdoor_study/data/main.parquet")
+        if alt_parquet.exists():
+            dev_parquet = alt_parquet
+        else:
+            print(f"Warning: Neither {dev_parquet} nor {alt_parquet} found. Using synthetic fallback.")
+    if not splits_json.exists():
+        alt_splits = Path("mimiciv_backdoor_study/data/splits_main.json")
+        if alt_splits.exists():
+            splits_json = alt_splits
+        else:
+            print(f"Warning: Neither {splits_json} nor {alt_splits} found. Using synthetic split fallback.")
 
     # Load checkpoint (supports either a saved state_dict or a full model object)
     # Some older checkpoints require unpickling globals (e.g. numpy reconstruct). Try a safe default
